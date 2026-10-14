@@ -2,6 +2,14 @@
   publish = "public"
   command = "echo 'No build step'"
 
+# Netlify's secret check looks for each setting's value in these files.
+# A short PIN matches ordinary numbers in the saved test data (permit numbers,
+# serials), so the PIN and the test folder are skipped. The PIN is never written
+# in the code; the app reads it from the VIEWER_PIN setting.
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "VIEWER_PIN"
+  SECRETS_SCAN_OMIT_PATHS = "test/**"
+
 [functions]
   node_bundler = "esbuild"
 
