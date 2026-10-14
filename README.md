@@ -83,6 +83,10 @@ screen** (Android) so it opens like an app.
   leaves Location alone until someone taps **Mark done** (Moves tab, or the
   machine's history).
 - **Edit details** on a machine page. Changing Location offers to log it as a move.
+- **Edit** on any move (machine history, jobsite pages, or the Moves table) to fix
+  its machine, sites, date, status, driver, truck or permit. When it's the
+  machine's latest move, it offers to change the machine's Location to match.
+  Moves that don't match a machine can be linked by picking the right one.
 - **+ Add photo or file** on a machine page. Phone photos are shrunk to fit
   Airtable's 5 MB limit. PDFs are added as they are.
 - **+ Add machine** under Fleet. The Equipment ID must be new, and a Type is required.

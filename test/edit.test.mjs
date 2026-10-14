@@ -224,3 +224,58 @@ test('after undo, the next person to load sees it undone straight away', async (
   assert.ok(!after.eq.some((x) => x.id === '336-09'));
   assert.equal(after.log.length, 0);
 });
+
+test('a completed move can be edited, and its Location fixed with it; undo puts both back', async () => {
+  const { call, office, viewer, data, rec, byId, deps } = await setup();
+  const o = await office();
+  const d0 = await data(o);
+  const m = d0.mv.find((x) => x[1] === 'D6T-03' && x[8] === 'Complete'); // newest: TOA 3 -> 1201 Colllegeville, 6/11/26
+  assert.equal(m[4], '1201 Colllegeville');
+  const e = byId('D6T-03');
+  const r = await call('/api/moves', { method: 'PATCH', cookie: o, body: {
+    move: m[11], expect: { to: m[10] || m[4], date: m[0], driver: m[5] }, set: { to: 'Odessa', date: '2026-06-12', driver: 'Dan I' },
+    setLoc: { rec: e.id, from: '1201 Colllegeville', to: 'Odessa' } } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const mv = rec(MOVES.table, m[11]).fields;
+  assert.deepEqual([mv[M.to], mv[M.date], mv[M.driver]], ['Odessa', '2026-06-12', 'Dan I']);
+  assert.equal(rec(EQUIPMENT.table, e.id).fields[E.location], 'Odessa');
+  const log = deps.airtable.data[CHANGE_LOG.table];
+  assert.equal(log[0].fields[L.change], 'Move edited');
+  assert.match(log[0].fields[L.from], /To: 1201 Coll/); // as it was typed in Airtable
+  assert.match(log[0].fields[L.to], /To: Odessa/);
+  const d1 = await data(await viewer());
+  const m1 = d1.mv.find((x) => x[11] === m[11]);
+  assert.deepEqual([m1[0], m1[4], m1[5]], ['2026-06-12', 'Odessa', 'Dan I']);
+  assert.equal(d1.eq.find((x) => x.id === 'D6T-03').loc, 'Odessa');
+  await call('/api/undo', { method: 'POST', cookie: o, body: { token: r.body.undo } });
+  assert.equal(rec(MOVES.table, m[11]).fields[M.to], m[10] || m[4]);
+  assert.equal(rec(EQUIPMENT.table, e.id).fields[E.location], '1201 Colllegeville');
+  const d2 = await data(await viewer());
+  assert.deepEqual(d2.mv.find((x) => x[11] === m[11]).slice(0, 9), m.slice(0, 9));
+});
+
+test('an unmatched move can be linked to the right machine', async () => {
+  const { call, office, data, rec, byId } = await setup();
+  const o = await office();
+  const d0 = await data(o);
+  const m = d0.mv.find((x) => x[2] < 0 && x[1] === 'Disk-01');
+  const disc = byId('Disc-01') || byId('DISC-01');
+  assert.ok(m && disc, 'test data has an unmatched Disk-01 move and a Disc-01 machine');
+  const r = await call('/api/moves', { method: 'PATCH', cookie: o, body: { move: m[11], expect: { eq: m[1] }, set: { eq: 'Disc-01' }, eqRec: disc.id } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(rec(MOVES.table, m[11]).fields[M.equipment], disc.fields[E.id]);
+  const d1 = await data(o);
+  const m1 = d1.mv.find((x) => x[11] === m[11]);
+  assert.equal(d1.eq[m1[2]].id, disc.fields[E.id]);
+  assert.equal(d1.stats.matched, d0.stats.matched + 1);
+});
+
+test('editing a move refuses to overwrite a change made in Airtable meanwhile', async () => {
+  const { call, office, data, rec } = await setup();
+  const o = await office();
+  const m = (await data(o)).mv.find((x) => x[1] === 'D6T-03');
+  rec(MOVES.table, m[11]).fields[M.driver] = 'Kyle S';
+  const r = await call('/api/moves', { method: 'PATCH', cookie: o, body: { move: m[11], expect: { driver: m[5] }, set: { driver: 'Dan I' } } });
+  assert.equal(r.status, 409);
+  assert.match(r.body.error, /Driver/);
+});

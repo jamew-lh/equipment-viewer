@@ -103,7 +103,8 @@ function moveLine(m, showEq){
   const eq = m[2] >= 0 && !EQ[m[2]].hidden ? EQ[m[2]] : null;
   const who = showEq ? (eq ? `<button class="lnk mono" data-eq="${eq.i}" style="appearance:none;border:none;background:none;padding:0;font:600 14px var(--f-mono);color:var(--ink);text-decoration:underline;cursor:pointer">${esc(eq.id)}</button> ` : `<span class="mono">${esc(m[1]||'?')}</span> `) : '';
   const meta = [m[5]&&`Driver ${esc(m[5])}`, m[6]&&`Truck ${esc(m[6])}`, m[7]&&m[7]!=='n/a'&&`Permit ${esc(m[7])}`, m[8]&&m[8]!=='Complete'&&`<b class="open">${esc(m[8])}</b>`, m[12]&&`Entered by ${esc(m[12])}`].filter(Boolean);
-  const done = isOffice() && isOpen(m) ? `<button type="button" class="mini" data-done="${MV.indexOf(m)}">Mark done</button>` : '';
+  const k = isOffice() && m[11] ? MV.indexOf(m) : -1;
+  const done = k < 0 ? '' : `${isOpen(m) ? `<button type="button" class="mini" data-done="${k}">Mark done</button>` : ''}<button type="button" class="mini ghost" data-edit-move="${k}">Edit</button>`;
   return `<div class="mv"><span class="d">${fmtS(m[0])}</span>
     <span class="ft">${who}<span title="${esc(m[9]||'')}">${esc(m[3]||'?')}</span><span class="ar">→</span><span title="${esc(m[10]||'')}">${esc(m[4]||'?')}</span></span>
     ${meta.length||done?`<span class="meta">${meta.map(x=>`<span>${x}</span>`).join('')}${done}</span>`:''}</div>`;
@@ -207,11 +208,11 @@ function renderMoves(){
       (!q || [m[1], m[2]>=0?EQ[m[2]].id:'', m[3], m[4], m[5], m[9], m[10]].join(' ').toLowerCase().includes(q)));
     const shown = rows.slice(0, state.mShown);
     $('#mout').innerHTML = rows.length ? `<p class="sub" style="margin:0">${rows.length.toLocaleString()} move${rows.length===1?'':'s'}${rows.length>shown.length?`, showing the newest ${shown.length}`:''}</p>
-      <div class="tbl"><table><thead><tr><th>Date</th><th>Equipment</th><th>From</th><th>To</th><th class="hide-sm">Driver</th><th class="hide-sm">Truck</th><th class="hide-sm">Permit</th></tr></thead><tbody>
+      <div class="tbl"><table><thead><tr><th>Date</th><th>Equipment</th><th>From</th><th>To</th><th class="hide-sm">Driver</th><th class="hide-sm">Truck</th><th class="hide-sm">Permit</th>${isOffice() ? '<th></th>' : ''}</tr></thead><tbody>
       ${shown.map(m => `<tr class="${m[8]==='Need'||m[8]==='Scheduled'?'need':''}"><td class="d">${fmtS(m[0])}</td>
         <td>${m[2]<0?`<span class="raw">${esc(m[1]||'—')}</span> <span class="pill p-amber">Not matched</span>`:EQ[m[2]].hidden?`<span class="raw">${esc(EQ[m[2]].id)}</span>`:`<button class="lnk" data-eq="${m[2]}">${esc(EQ[m[2]].id)}</button>`}</td>
         <td title="${esc(m[9])}">${esc(m[3]||'—')}</td><td title="${esc(m[10])}">${esc(m[4]||'—')}</td>
-        <td class="hide-sm">${esc(m[5]||'—')}</td><td class="hide-sm mono">${esc(m[6]||'—')}</td><td class="hide-sm mono">${esc(m[7]&&m[7]!=='n/a'?m[7]:'—')}</td></tr>`).join('')}
+        <td class="hide-sm">${esc(m[5]||'—')}</td><td class="hide-sm mono">${esc(m[6]||'—')}</td><td class="hide-sm mono">${esc(m[7]&&m[7]!=='n/a'?m[7]:'—')}</td>${isOffice() ? `<td class="act">${m[11] ? `<button type="button" class="mini ghost" data-edit-move="${MV.indexOf(m)}">Edit</button>` : ''}</td>` : ''}</tr>`).join('')}
       </tbody></table></div>${rows.length>shown.length?'<button class="more" id="more">Show 100 more</button>':''}` : '<div class="panel empty">No moves match.</div>';
     const more = $('#more'); if (more) more.onclick = () => { state.mShown += 100; draw(); };
   };

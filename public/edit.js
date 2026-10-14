@@ -86,7 +86,7 @@ function restore(r){
 }
 
 function addLog(e, field, from, to){ D.log.unshift({ at: Date.now(), by: D.office.name, rec: e.rec, id: e.id, field, from: from || '', to: to || '' }); }
-function insertMove(m){ let i = MV.findIndex(x => (x[0]||'') <= m[0]); if (i < 0) i = MV.length; MV.splice(i, 0, m); D.stats.matched++; }
+function insertMove(m){ let i = MV.findIndex(x => (x[0]||'') <= m[0]); if (i < 0) i = MV.length; MV.splice(i, 0, m); if (m[2] >= 0) D.stats.matched++; }
 
 function changePanel(e){
   const rows = D.log.filter(x => x.rec === e.rec || (x.id && x.id === e.id));
@@ -174,6 +174,100 @@ function moveForm({ eq = null }){
   });
 }
 
+// ---------- edit a move that's already saved ----------
+function editMoveForm(m){
+  const e0 = m[2] >= 0 ? EQ[m[2]] : null;
+  let picked = e0;
+  const drivers = frequent(5), trucks = frequent(6);
+  const permit0 = m[7] && m[7] !== 'n/a' ? m[7] : '';
+  openSheet(`Edit move · ${m[1] || 'no ID'}`, `
+    ${e0 ? '' : `<p class="note">This move's ID, <b>${esc(m[1] || 'blank')}</b>, doesn't match a machine. Pick the right machine to link it.</p>`}
+    <div class="fg"><label for="mvQ">Machine</label>
+      <div id="mvPicked" class="picked" hidden></div>
+      <div id="mvSearch"><input id="mvQ" type="search" placeholder="Type an ID, e.g. 336 or D6" autocomplete="off">
+      <div id="mvList" class="picklist"></div></div></div>
+    <div class="fg2">
+      <div class="fg"><label for="mvFrom">From</label><select id="mvFrom">${siteOptions(m[3], { allowBlank: true })}</select><input id="mvFromNew" placeholder="New site name" hidden></div>
+      <div class="fg"><label for="mvTo">To</label><select id="mvTo">${siteOptions(m[4], { allowBlank: true })}</select><input id="mvToNew" placeholder="New site name" hidden></div>
+    </div>
+    <div class="fg"><span class="lbl">Status</span><div class="seg" id="mvSt">${['Complete','Scheduled','Need'].map(s => `<label><input type="radio" name="mvSt" value="${s}" ${s===m[8]?'checked':''}><span>${s}</span></label>`).join('')}</div></div>
+    <div class="fg2">
+      <div class="fg"><label for="mvDate">Date</label><input id="mvDate" type="date" value="${esc(m[0])}"></div>
+      <div class="fg"><label for="mvPermit">Permit #</label><input id="mvPermit" inputmode="numeric" placeholder="n/a" value="${esc(permit0)}"></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label for="mvDriver">Driver</label><input id="mvDriver" list="dlDrivers" autocomplete="off" value="${esc(m[5])}"><datalist id="dlDrivers">${drivers.map(d => `<option value="${esc(d)}">`).join('')}</datalist></div>
+      <div class="fg"><label for="mvTruck">Truck</label><input id="mvTruck" list="dlTrucks" autocomplete="off" class="mono" value="${esc(m[6])}"><datalist id="dlTrucks">${trucks.map(d => `<option value="${esc(d)}">`).join('')}</datalist></div>
+    </div>
+    <label class="check" id="mvLocWrap" hidden><input type="checkbox" id="mvLoc"> <span id="mvLocText"></span></label>
+    ${m[12] ? `<p class="sub" style="margin:0">Entered by ${esc(m[12])}</p>` : ''}`, {
+    saveLabel: 'Save changes',
+    onMount(){
+      const showPicked = () => {
+        $('#mvPicked').hidden = !picked; $('#mvSearch').hidden = !!picked;
+        if (picked) $('#mvPicked').innerHTML = `<span class="id">${esc(picked.id)}</span><span class="mm">${esc([picked.mk, picked.md].filter(Boolean).join(' ') || picked.ty)}<small>Now at ${esc(picked.loc || 'no location')}</small></span><button type="button" class="mini" id="mvChange">Change</button>`;
+        if ($('#mvChange')) $('#mvChange').onclick = () => { picked = null; showPicked(); locHint(); $('#mvQ').focus(); };
+      };
+      $('#mvQ').oninput = () => {
+        const q = idKey($('#mvQ').value);
+        const hits = q ? EQ.filter(e => !e.hidden && idKey(e.id).includes(q)).sort((a,b) => idKey(a.id).indexOf(q) - idKey(b.id).indexOf(q) || a.id.localeCompare(b.id, undefined, {numeric:true})).slice(0, 8) : [];
+        $('#mvList').innerHTML = hits.map(e => `<button type="button" data-pick="${e.i}"><span class="id">${esc(e.id)}</span><span class="mm">${esc([e.mk, e.md].filter(Boolean).join(' ') || e.ty)}<small>${esc(e.loc || 'No location')}${e.old ? ' · Old Equipment' : ''}</small></span></button>`).join('')
+          || (q ? '<p class="sub">No machine with that ID.</p>' : '');
+      };
+      $('#mvList').onclick = ev => { const b = ev.target.closest('[data-pick]'); if (!b) return; picked = EQ[+b.dataset.pick]; showPicked(); locHint(); };
+      const getFrom = wireNewSite('mvFrom', 'mvFromNew'), getTo = wireNewSite('mvTo', 'mvToNew');
+      // Offer to fix the machine's Location when this is its latest completed move.
+      let wasShown = false;
+      const locHint = () => {
+        const st = sheetEl.querySelector('[name=mvSt]:checked')?.value || m[8], to = getTo(), date = $('#mvDate').value;
+        const e = picked;
+        const later = e && byEq[e.i].map(j => MV[j]).find(x => x !== m && x[8] !== 'Need' && x[8] !== 'Scheduled' && x[0] > date);
+        const show = !!(e && !e.old && st === 'Complete' && to && e.loc !== to && !later);
+        $('#mvLocWrap').hidden = !show;
+        if (show) {
+          $('#mvLocText').innerHTML = `Also change <b>${esc(e.id)}</b>'s Location from <b>${esc(e.loc || 'not set')}</b> to <b>${esc(to)}</b>`;
+          if (!wasShown) $('#mvLoc').checked = e === e0 && (e.loc === m[4] || m[8] !== 'Complete');
+        }
+        wasShown = show;
+      };
+      $('#sheetForm').addEventListener('change', locHint); $('#sheetForm').addEventListener('input', locHint);
+      showPicked(); locHint();
+      this.read = () => ({ getFrom, getTo });
+    },
+    async onSave(){
+      const { getFrom, getTo } = this.read();
+      const v = { eq: picked?.id || '', from: getFrom(), to: getTo(), status: sheetEl.querySelector('[name=mvSt]:checked')?.value || m[8],
+        date: $('#mvDate').value, driver: $('#mvDriver').value.trim(), truck: $('#mvTruck').value.trim(), permit: $('#mvPermit').value.trim() };
+      if (!picked) fail('Pick the machine that moved.');
+      if (!v.to) fail('Pick where it went.');
+      if (v.to === v.from) fail('From and To are the same site.');
+      if (!v.date) fail('Enter the date of the move.');
+      // What the move says now (as typed in Airtable), to catch someone else's change.
+      const was = { eq: m[1], from: m[9] || m[3], to: m[10] || m[4], status: m[8], date: m[0], driver: m[5], truck: m[6], permit: m[7] };
+      const shown = { ...was, from: m[3], to: m[4], permit: permit0 };
+      const keys = Object.keys(v).filter(k => k === 'eq' ? picked !== e0 : v[k] !== shown[k]);
+      const setLoc = !$('#mvLocWrap').hidden && $('#mvLoc').checked ? { rec: picked.rec, from: picked.loc, to: v.to } : null;
+      if (!keys.length && !setLoc) return true;
+      if (!keys.length) fail('Nothing about the move changed. To change only the Location, use Edit details on the machine.');
+      const res = await api('PATCH', '/api/moves', { move: m[11], expect: Object.fromEntries(keys.map(k => [k, was[k]])),
+        set: Object.fromEntries(keys.map(k => [k, v[k]])), eqRec: keys.includes('eq') ? picked.rec : undefined, setLoc });
+      const mem = remember(setLoc ? picked : null);
+      const n = m.slice();
+      n[0] = v.date; n[1] = picked.id; n[2] = picked.i; n[3] = v.from; n[4] = v.to; n[5] = v.driver; n[6] = v.truck; n[7] = v.permit || 'n/a'; n[8] = v.status;
+      if (keys.includes('from')) n[9] = ''; if (keys.includes('to')) n[10] = '';
+      MV.splice(MV.indexOf(m), 1); if (m[2] >= 0) D.stats.matched--; insertMove(n);
+      addLog(picked, 'Move edited', keys.map(k => `${k === 'eq' ? 'Machine' : k[0].toUpperCase() + k.slice(1)}: ${shown[k] || '(blank)'}`).join(', '), keys.map(k => `${k === 'eq' ? 'Machine' : k[0].toUpperCase() + k.slice(1)}: ${v[k] || '(blank)'}`).join(', '));
+      if (setLoc && picked.loc !== v.to) { addLog(picked, 'Location', picked.loc, v.to); picked.loc = v.to; }
+      prepare(D); rerenderKeepingPlace();
+      toast(`Move updated${setLoc ? `. <b>${esc(picked.id)}</b> is now at ${esc(v.to)}` : ''}.`, async () => { await api('POST', '/api/undo', { token: res.undo }); restore(mem); });
+    },
+  });
+}
+main.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-edit-move]'); if (!b) return;
+  ev.stopPropagation(); editMoveForm(MV[+b.dataset.editMove]);
+}, true);
+
 // ---------- mark a scheduled move done ----------
 main.addEventListener('click', ev => {
   const b = ev.target.closest('[data-done]'); if (!b) return;
@@ -189,7 +283,7 @@ main.addEventListener('click', ev => {
       const res = await api('POST', '/api/moves/done', { move: m[11], rec: e?.rec, to: m[4], date });
       const mem = remember(e);
       const i = MV.indexOf(m); MV.splice(i, 1);
-      const done = m.slice(); done[0] = date; done[8] = 'Complete'; D.stats.matched--; insertMove(done);
+      const done = m.slice(); done[0] = date; done[8] = 'Complete'; if (m[2] >= 0) D.stats.matched--; insertMove(done);
       if (e) { addLog(e, 'Move', m[3], `${m[4]} (marked done)`); if (e.loc !== m[4]) { addLog(e, 'Location', e.loc, m[4]); e.loc = m[4]; } }
       prepare(D); rerenderKeepingPlace();
       toast(`Move marked done${e ? `. <b>${esc(e.id)}</b> is now at ${esc(m[4])}` : ''}.`, async () => { await api('POST', '/api/undo', { token: res.undo }); restore(mem); });
