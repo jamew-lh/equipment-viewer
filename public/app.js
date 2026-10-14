@@ -17,7 +17,8 @@ byEq = EQ.map(() => []);
 MV.forEach((m, i) => { if (m[2] >= 0) byEq[m[2]].push(i); });
 EQ.forEach((e, i) => {
   e.i = i; e.retired = !!e.old || RETIRED_LOC.has(e.loc) || RETIRED_ST.has(e.st);
-  e.blank = !e.loc && !e.ty && !e.mk && !e.st;
+  // Left out of the app: anything with no Type, and generators. Their moves stay in the Moves log.
+  e.hidden = !e.ty || HIDDEN_TYPES.includes(e.ty);
   const last = byEq[i].find(j => MV[j][8] !== 'Need' && MV[j][8] !== 'Scheduled');
   e.lastMove = last != null ? MV[last] : null;
   // arrived at current location: newest completed move whose To matches Location
@@ -49,6 +50,7 @@ const TYPE_ORDER = ['Excavator','Dozer','Articulating Truck','Roller',
   'Trench Box','Shoring','Manhole Box','Stone Box'];
 const typeRank = t => { if (t === 'Bucket') return 1e4; if (t === 'Type not set') return 9e3; const i = TYPE_ORDER.indexOf(t); return i < 0 ? 1e3 : i; };
 const byTypeOrder = (a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b);
+const HIDDEN_TYPES = ['Generator'];
 const state = { site:null, q:'', type:'', showRetired:false, mq:'', myear:'', mOnlyUnmatched:false, mShown:100 };
 function setTab(t){ tab=t; stack=[]; for(const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', b.id==='t-'+t); render(); window.scrollTo(0,0); }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.site=null; setTab(b.id.slice(2)); });
@@ -64,7 +66,7 @@ const banner = '';
 // ---------------- jobsites ----------------
 function renderSites(){
   if (state.site) return renderSite(state.site);
-  const live = EQ.filter(e => !e.retired && !e.blank);
+  const live = EQ.filter(e => !e.retired && !e.hidden);
   const groups = {};
   live.forEach(e => (groups[e.loc || 'No location set'] ??= []).push(e));
   const names = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length || a.localeCompare(b));
@@ -83,7 +85,7 @@ function renderSites(){
     <p class="sub">${retired} sold, scrapped or auctioned pieces are left off this page. Find them under Fleet.</p></div>`;
 }
 function renderSite(n){
-  const g = EQ.filter(e => !e.retired && !e.blank && (e.loc || 'No location set') === n);
+  const g = EQ.filter(e => !e.retired && !e.hidden && (e.loc || 'No location set') === n);
   const byType = {}; g.forEach(e => (byType[e.ty || 'Type not set'] ??= []).push(e));
   const types = Object.keys(byType).sort(byTypeOrder);
   const recent = MV.filter(m => m[3]===n || m[4]===n).slice(0, 8);
@@ -98,7 +100,7 @@ function renderSite(n){
   $('#back').onclick = () => { state.site=null; render(); };
 }
 function moveLine(m, showEq){
-  const eq = m[2] >= 0 ? EQ[m[2]] : null;
+  const eq = m[2] >= 0 && !EQ[m[2]].hidden ? EQ[m[2]] : null;
   const who = showEq ? (eq ? `<button class="lnk mono" data-eq="${eq.i}" style="appearance:none;border:none;background:none;padding:0;font:600 14px var(--f-mono);color:var(--ink);text-decoration:underline;cursor:pointer">${esc(eq.id)}</button> ` : `<span class="mono">${esc(m[1]||'?')}</span> `) : '';
   const meta = [m[5]&&`Driver ${esc(m[5])}`, m[6]&&`Truck ${esc(m[6])}`, m[7]&&m[7]!=='n/a'&&`Permit ${esc(m[7])}`, m[8]&&m[8]!=='Complete'&&esc(m[8])].filter(Boolean);
   return `<div class="mv"><span class="d">${fmtS(m[0])}</span>
@@ -118,7 +120,7 @@ function renderFleet(){
     <div id="out"></div></div>`;
   const draw = () => {
     const q = state.q.trim().toLowerCase();
-    let rows = EQ.filter(e => (state.showRetired || (!e.retired && !e.blank)) &&
+    let rows = EQ.filter(e => !e.hidden && (state.showRetired || !e.retired) &&
       (!q || [e.id,e.mk,e.md,e.sn,e.loc,e.ty].join(' ').toLowerCase().includes(q)));
     const counts = {}; rows.forEach(e => { const t = e.ty || 'Type not set'; counts[t] = (counts[t]||0) + 1; });
     const types = Object.keys(counts).sort((a,b) => (a==='Type not set')-(b==='Type not set') || counts[b]-counts[a] || a.localeCompare(b));
@@ -197,7 +199,7 @@ function renderMoves(){
     $('#mout').innerHTML = rows.length ? `<p class="sub" style="margin:0">${rows.length.toLocaleString()} move${rows.length===1?'':'s'}${rows.length>shown.length?`, showing the newest ${shown.length}`:''}</p>
       <div class="tbl"><table><thead><tr><th>Date</th><th>Equipment</th><th>From</th><th>To</th><th class="hide-sm">Driver</th><th class="hide-sm">Truck</th><th class="hide-sm">Permit</th></tr></thead><tbody>
       ${shown.map(m => `<tr class="${m[8]==='Need'||m[8]==='Scheduled'?'need':''}"><td class="d">${fmtS(m[0])}</td>
-        <td>${m[2]>=0?`<button class="lnk" data-eq="${m[2]}">${esc(EQ[m[2]].id)}</button>`:`<span class="raw">${esc(m[1]||'—')}</span> <span class="pill p-amber">Not matched</span>`}</td>
+        <td>${m[2]<0?`<span class="raw">${esc(m[1]||'—')}</span> <span class="pill p-amber">Not matched</span>`:EQ[m[2]].hidden?`<span class="raw">${esc(EQ[m[2]].id)}</span>`:`<button class="lnk" data-eq="${m[2]}">${esc(EQ[m[2]].id)}</button>`}</td>
         <td title="${esc(m[9])}">${esc(m[3]||'—')}</td><td title="${esc(m[10])}">${esc(m[4]||'—')}</td>
         <td class="hide-sm">${esc(m[5]||'—')}</td><td class="hide-sm mono">${esc(m[6]||'—')}</td><td class="hide-sm mono">${esc(m[7]&&m[7]!=='n/a'?m[7]:'—')}</td></tr>`).join('')}
       </tbody></table></div>${rows.length>shown.length?'<button class="more" id="more">Show 100 more</button>':''}` : '<div class="panel empty">No moves match.</div>';
