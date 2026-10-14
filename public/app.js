@@ -31,7 +31,6 @@ function statusPill(st){
   const c = st==='In Service'?'p-ok':st==='Down for Maintenance'?'p-warn':st==='Sold/Trade'||st==='Out of Service'?'p-mute':'p-amber';
   return `<span class="pill ${c}">${esc(st)}</span>`;
 }
-const catOrder = {Major:0, Mid:1, Small:2, '':3};
 function eqRow(e, opts={}){
   const mm = [e.mk, e.md].filter(Boolean).join(' ') || '<span class="muted">No make/model</span>';
   const sub = opts.showLoc ? (e.loc || 'No location') : (e.ty || '');
@@ -43,7 +42,7 @@ function eqRow(e, opts={}){
 
 // ---------------- navigation ----------------
 let tab = 'sites', stack = [];
-const state = { site:null, q:'', cat:'All', type:'', showRetired:false, mq:'', myear:'', mOnlyUnmatched:false, mShown:100 };
+const state = { site:null, q:'', type:'', showRetired:false, mq:'', myear:'', mOnlyUnmatched:false, mShown:100 };
 function setTab(t){ tab=t; stack=[]; for(const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', b.id==='t-'+t); render(); window.scrollTo(0,0); }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.site=null; setTab(b.id.slice(2)); });
 function openEq(i){ stack.push({tab, site:state.site, y:window.scrollY}); renderMachine(EQ[i]); window.scrollTo(0,0); }
@@ -63,19 +62,16 @@ function renderSites(){
   live.forEach(e => (groups[e.loc || 'No location set'] ??= []).push(e));
   const names = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length || a.localeCompare(b));
   const card = n => {
-    const g = groups[n], c = {Major:0, Mid:0, Small:0, '':0}; g.forEach(e => c[e.cat||'']++);
+    const g = groups[n];
     const tc = {}; g.forEach(e => { if(e.ty) tc[e.ty]=(tc[e.ty]||0)+1; });
     const types = Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([t,n])=>`${n} ${t}`).join(' · ');
-    const w = k => (c[k]/g.length*100).toFixed(1);
     const down = g.filter(e => e.st==='Down for Maintenance').length;
     return `<button class="site" data-site="${esc(n)}"><div class="row"><span class="nm">${esc(n)}</span><span class="ct">${g.length}</span></div>
-      <div class="mix" aria-hidden="true"><i class="mj" style="width:${w('Major')}%"></i><i class="md" style="width:${w('Mid')}%"></i><i class="sm" style="width:${(+w('Small')+ +w('')).toFixed(1)}%"></i></div>
       <span class="types">${esc(types)}</span>${down?`<span class="pill p-warn" style="align-self:flex-start">${down} down for maintenance</span>`:''}</button>`;
   };
   const retired = EQ.filter(e => e.retired).length;
   main.innerHTML = `<div class="view stack">${banner}
     <div><h1>Jobsites</h1><p class="lede">${live.length} pieces across ${names.length} locations. Tap a site to see what's there.</p></div>
-    <div class="legend"><span style="--c:var(--brand)">Major</span><span style="--c:var(--tan)">Mid</span><span style="--c:var(--line)">Small / not set</span></div>
     <div class="sites">${names.map(card).join('')}</div>
     <p class="sub">${retired} sold, scrapped or auctioned pieces are left off this page. Find them under Fleet.</p></div>`;
 }
@@ -83,8 +79,7 @@ function renderSite(n){
   const g = EQ.filter(e => !e.retired && !e.blank && (e.loc || 'No location set') === n);
   const byType = {}; g.forEach(e => (byType[e.ty || 'Type not set'] ??= []).push(e));
   const types = Object.keys(byType).sort((a,b) => {
-    const ca = Math.min(...byType[a].map(e=>catOrder[e.cat||''])), cb = Math.min(...byType[b].map(e=>catOrder[e.cat||'']));
-    return ca-cb || byType[b].length-byType[a].length;
+    return (a==='Type not set')-(b==='Type not set') || byType[b].length-byType[a].length || a.localeCompare(b);
   });
   const recent = MV.filter(m => m[3]===n || m[4]===n).slice(0, 8);
   main.innerHTML = `<div class="view stack">
@@ -138,7 +133,7 @@ function renderFleet(){
 // ---------------- machine ----------------
 function renderMachine(e){
   const mm = [e.mk, e.md].filter(Boolean).join(' ');
-  const facts = [['Type', e.ty], ['Category', e.cat], ['Make', e.mk], ['Model', e.md], ['Year', e.yr],
+  const facts = [['Type', e.ty], ['Make', e.mk], ['Model', e.md], ['Year', e.yr],
     ['Serial number', e.sn && `<span class="mono">${esc(e.sn)}</span>`], ['Operating weight', e.wt && (isNaN(+String(e.wt).replace(/,/g,'')) ? esc(e.wt) : `${Number(String(e.wt).replace(/,/g,'')).toLocaleString()} lb`)],
     ['Dealer', (e.dl||[]).join(', ')], ['Filter list', e.flt && `<span class="mono">${esc(e.flt)}</span>`], ['Tooth type', e.tooth]].filter(f => f[1]);
   const moves = byEq[e.i].map(j => MV[j]);
