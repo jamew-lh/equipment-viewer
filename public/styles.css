@@ -1,27 +1,19 @@
-/* Layout: same family as the PM Service and Timecard apps. White header with logo and tan rule, pill tabs,
+/* Always the light look: white page, dark text, green and tan accents.
+   Layout: same family as the PM Service and Timecard apps. White header with logo and tan rule, pill tabs,
    one column on phones, two columns on desktop. Green carries structure and selection, tan marks rules. */
 :root{
   --brand:#004745; --brand-2:#0b5f5c; --tan:#D4A070; --tan-soft:#f6ebdd;
-  --bg:#eef2f1; --panel:#ffffff; --ink:#1e2a2a; --muted:#5e6b6a; --line:#d5dcda; --field:#f5f8f7;
+  --bg:#ffffff; --panel:#ffffff; --ink:#1e2a2a; --muted:#56635f; --line:#d3dbd8; --field:#f4f7f6;
   --sel-bg:#004745; --sel-fg:#ffffff; --band-fg:#ffffff; --band-sub:#bfd3d1;
   --warn:#a5401b; --warn-soft:#fbe6dc; --ok:#1f6f5a; --ok-soft:#dcefe9; --amber:#8a5a00; --amber-soft:#fbf0d6;
-  --head:#ffffff; --tabs:#eef2f1; --tab-fg:#004745;
+  --head:#ffffff; --tabs:#f1f4f3; --tab-fg:#004745;
   --f-display:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0e1a19; --panel:#162625; --ink:#e4ecea; --muted:#9aaaa7; --line:#2a3e3c; --field:#1d302e;
-  --sel-bg:#D4A070; --sel-fg:#0e1a19; --tan-soft:#3a2e20; --brand-2:#0b5f5c;
-  --warn:#f09272; --warn-soft:#3a2018; --ok:#7fd1b6; --ok-soft:#173329; --amber:#e8c06a; --amber-soft:#33290f;
-  --tabs:#1d302e; --tab-fg:#e4ecea; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0e1a19; --panel:#162625; --ink:#e4ecea; --muted:#9aaaa7; --line:#2a3e3c; --field:#1d302e;
-  --sel-bg:#D4A070; --sel-fg:#0e1a19; --tan-soft:#3a2e20; --brand-2:#0b5f5c;
-  --warn:#f09272; --warn-soft:#3a2018; --ok:#7fd1b6; --ok-soft:#173329; --amber:#e8c06a; --amber-soft:#33290f;
-  --tabs:#1d302e; --tab-fg:#e4ecea; color-scheme:dark}
 
 *{box-sizing:border-box}
+:root{color-scheme:light}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45}
 button{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--tan);outline-offset:2px}
@@ -37,9 +29,6 @@ button{font:inherit;color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 64px;display:flex;flex-direction:column;gap:16px}
 h1{font-family:var(--f-display);font-stretch:125%;font-weight:800;font-size:24px;margin:0;line-height:1.15;text-wrap:balance}
 h2{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);margin:0;display:flex;align-items:center;gap:10px}
-:root:not([data-theme="light"]) h2{color:var(--brand)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) h2{color:var(--tan)}}
-:root[data-theme="dark"] h2{color:var(--tan)}
 h2::after{content:"";flex:1;height:2px;background:var(--tan);opacity:.7}
 h2 small{font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);font-size:13px;font-stretch:100%}
 .lede{margin:2px 0 0;color:var(--muted);font-size:14px}
@@ -67,14 +56,10 @@ input[type=search]{flex:1 1 220px}
 .site:hover{border-color:var(--brand-2)}
 .site .nm{font:800 18px var(--f-display);font-stretch:112%;line-height:1.15}
 .site .ct{font:700 28px var(--f-display);font-variant-numeric:tabular-nums;color:var(--brand);line-height:1}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .site .ct{color:var(--tan)}}
-:root[data-theme="dark"] .site .ct{color:var(--tan)}
 .site .row{display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
 .mix{display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:var(--field)}
 .mix i{display:block;height:100%}
 .mix .mj{background:var(--brand)} .mix .md{background:var(--tan)} .mix .sm{background:var(--line)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .mix .mj{background:#5fb3ad}}
-:root[data-theme="dark"] .mix .mj{background:#5fb3ad}
 .legend{display:flex;gap:12px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
 .site .types{font-size:13px;color:var(--muted);line-height:1.35}
@@ -132,8 +117,6 @@ dl.facts dt:first-of-type,dl.facts dd:first-of-type{border-top:none}
 .mv .meta{grid-column:2;font-size:13px;color:var(--muted)}
 .mv .meta span+span::before{content:" · "}
 .mv.cur .ft{color:var(--brand)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .mv.cur .ft{color:var(--tan)}}
-:root[data-theme="dark"] .mv.cur .ft{color:var(--tan)}
 
 /* moves table */
 .tbl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}

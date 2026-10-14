@@ -42,6 +42,13 @@ function eqRow(e, opts={}){
 
 // ---------------- navigation ----------------
 let tab = 'sites', stack = [];
+// Order types are listed in on Jobsites. Types not named here go after the
+// boxes, in A-Z order, with buckets last.
+const TYPE_ORDER = ['Excavator','Dozer','Articulating Truck','Roller',
+  'Rubber Tire Loader','Track Loader','Skid Loader','Backhoe','Attachment',
+  'Trench Box','Shoring','Manhole Box','Stone Box'];
+const typeRank = t => { if (t === 'Bucket') return 1e4; if (t === 'Type not set') return 9e3; const i = TYPE_ORDER.indexOf(t); return i < 0 ? 1e3 : i; };
+const byTypeOrder = (a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b);
 const state = { site:null, q:'', type:'', showRetired:false, mq:'', myear:'', mOnlyUnmatched:false, mShown:100 };
 function setTab(t){ tab=t; stack=[]; for(const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', b.id==='t-'+t); render(); window.scrollTo(0,0); }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.site=null; setTab(b.id.slice(2)); });
@@ -64,7 +71,7 @@ function renderSites(){
   const card = n => {
     const g = groups[n];
     const tc = {}; g.forEach(e => { if(e.ty) tc[e.ty]=(tc[e.ty]||0)+1; });
-    const types = Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([t,n])=>`${n} ${t}`).join(' · ');
+    const types = Object.entries(tc).sort((a,b)=>byTypeOrder(a[0],b[0])).slice(0,4).map(([t,n])=>`${n} ${t}`).join(' · ');
     const down = g.filter(e => e.st==='Down for Maintenance').length;
     return `<button class="site" data-site="${esc(n)}"><div class="row"><span class="nm">${esc(n)}</span><span class="ct">${g.length}</span></div>
       <span class="types">${esc(types)}</span>${down?`<span class="pill p-warn" style="align-self:flex-start">${down} down for maintenance</span>`:''}</button>`;
@@ -78,9 +85,7 @@ function renderSites(){
 function renderSite(n){
   const g = EQ.filter(e => !e.retired && !e.blank && (e.loc || 'No location set') === n);
   const byType = {}; g.forEach(e => (byType[e.ty || 'Type not set'] ??= []).push(e));
-  const types = Object.keys(byType).sort((a,b) => {
-    return (a==='Type not set')-(b==='Type not set') || byType[b].length-byType[a].length || a.localeCompare(b);
-  });
+  const types = Object.keys(byType).sort(byTypeOrder);
   const recent = MV.filter(m => m[3]===n || m[4]===n).slice(0, 8);
   main.innerHTML = `<div class="view stack">
     <button class="back" id="back">← All jobsites</button>

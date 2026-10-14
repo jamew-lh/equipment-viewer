@@ -3,7 +3,7 @@
   "short_name": "Equipment",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#004745",
+  "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
