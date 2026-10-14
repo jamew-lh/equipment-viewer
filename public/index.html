@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LH Equipment · Lyons &amp; Hohl</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Equipment">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=JetBrains+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+</head>
+<body>
+<header class="top"><div class="in">
+  <img src="/logo.png" alt="Lyons &amp; Hohl Site Contractors" width="152" height="48">
+  <div class="what">EQUIPMENT VIEWER<span class="updated" id="updated"></span></div>
+</div></header>
+<nav class="tabbar" id="tabbar" aria-label="Screens" hidden><div class="tabs" role="tablist">
+  <button role="tab" id="t-sites" aria-selected="true">Jobsites</button>
+  <button role="tab" id="t-fleet" aria-selected="false">Fleet</button>
+  <button role="tab" id="t-moves" aria-selected="false">Moves</button>
+</div></nav>
+<main class="wrap" id="main"><div class="msg info"><span class="spinner"></span> Loading…</div></main>
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-label="Photo">
+  <img id="lbImg" alt="">
+  <div class="bar"><a id="lbOpen" target="_blank" rel="noopener">Open full size</a><button type="button" id="lbClose">Close</button></div>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
