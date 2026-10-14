@@ -1,5 +1,5 @@
 // Local preview: the real API code against a saved copy of the LH Equipment records.
-// Run `npm run dev`, open http://localhost:8890 and sign in with PIN 2468.
+// Run `npm run dev`, open http://localhost:8890 and sign in with PIN 2468 (view only) or 1357 (office).
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -14,7 +14,7 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const store = memoryStore();
 const airtable = fakeAirtable();
 const deps = {
-  env: { AIRTABLE_TOKEN: 'dev', SESSION_SECRET: 'dev-secret-dev-secret-dev-secret', VIEWER_PIN: '2468' },
+  env: { AIRTABLE_TOKEN: 'dev', SESSION_SECRET: 'dev-secret-dev-secret-dev-secret', VIEWER_PIN: '2468', OFFICE_PIN: '1357' },
   airtable, store, now: () => Date.now(), ip: 'local', log: console.log,
   // Like Netlify's background function: the first load waits a few seconds.
   triggerSync: async () => { setTimeout(() => syncNow({ airtable, store, log: console.log }), 3000); },
@@ -23,7 +23,7 @@ const deps = {
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   if (url.pathname.startsWith('/api/')) {
-    const body = req.method === 'POST' ? await new Promise((ok) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => ok(b)); }) : undefined;
+    const body = req.method !== 'GET' && req.method !== 'HEAD' ? await new Promise((ok) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => ok(b)); }) : undefined;
     const r = await handle(new Request(url, { method: req.method, headers: req.headers, body }), deps);
     const headers = Object.fromEntries(r.headers);
     if (headers['set-cookie']) headers['set-cookie'] = headers['set-cookie'].replace('; Secure', '');

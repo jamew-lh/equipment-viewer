@@ -10,6 +10,7 @@ export default async (req, context) => {
     AIRTABLE_TOKEN: Netlify.env.get('AIRTABLE_TOKEN'),
     SESSION_SECRET: Netlify.env.get('SESSION_SECRET'),
     VIEWER_PIN: Netlify.env.get('VIEWER_PIN'),
+    OFFICE_PIN: Netlify.env.get('OFFICE_PIN'),
   };
   return handle(req, {
     env,

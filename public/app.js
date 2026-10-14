@@ -11,7 +11,7 @@ const today = () => { const n = new Date(); return Date.UTC(n.getFullYear(), n.g
 const daysSince = d => Math.round((today() - Date.parse(d)) / 864e5);
 
 function prepare(data){
-D = data; EQ = D.eq; MV = D.mv;
+D = data; EQ = D.eq; MV = D.mv; D.log ??= [];
 // moves per machine, newest first (MV is already sorted newest first)
 byEq = EQ.map(() => []);
 MV.forEach((m, i) => { if (m[2] >= 0) byEq[m[2]].push(i); });
@@ -61,7 +61,7 @@ main.addEventListener('click', ev => {
   const s = ev.target.closest('[data-site]'); if (s) { state.site = s.dataset.site; stack=[]; tab='sites'; for(const x of document.querySelectorAll('.tabs button')) x.setAttribute('aria-selected', x.id==='t-sites'); render(); window.scrollTo(0,0); }
 });
 function render(){ ({sites:renderSites, fleet:renderFleet, moves:renderMoves})[tab](); }
-const banner = '';
+const banner = window.SAMPLE_BANNER || '';
 
 // ---------------- jobsites ----------------
 function renderSites(){
@@ -102,16 +102,18 @@ function renderSite(n){
 function moveLine(m, showEq){
   const eq = m[2] >= 0 && !EQ[m[2]].hidden ? EQ[m[2]] : null;
   const who = showEq ? (eq ? `<button class="lnk mono" data-eq="${eq.i}" style="appearance:none;border:none;background:none;padding:0;font:600 14px var(--f-mono);color:var(--ink);text-decoration:underline;cursor:pointer">${esc(eq.id)}</button> ` : `<span class="mono">${esc(m[1]||'?')}</span> `) : '';
-  const meta = [m[5]&&`Driver ${esc(m[5])}`, m[6]&&`Truck ${esc(m[6])}`, m[7]&&m[7]!=='n/a'&&`Permit ${esc(m[7])}`, m[8]&&m[8]!=='Complete'&&esc(m[8])].filter(Boolean);
+  const meta = [m[5]&&`Driver ${esc(m[5])}`, m[6]&&`Truck ${esc(m[6])}`, m[7]&&m[7]!=='n/a'&&`Permit ${esc(m[7])}`, m[8]&&m[8]!=='Complete'&&`<b class="open">${esc(m[8])}</b>`, m[12]&&`Entered by ${esc(m[12])}`].filter(Boolean);
+  const done = isOffice() && isOpen(m) ? `<button type="button" class="mini" data-done="${MV.indexOf(m)}">Mark done</button>` : '';
   return `<div class="mv"><span class="d">${fmtS(m[0])}</span>
     <span class="ft">${who}<span title="${esc(m[9]||'')}">${esc(m[3]||'?')}</span><span class="ar">→</span><span title="${esc(m[10]||'')}">${esc(m[4]||'?')}</span></span>
-    ${meta.length?`<span class="meta">${meta.map(x=>`<span>${x}</span>`).join('')}</span>`:''}</div>`;
+    ${meta.length||done?`<span class="meta">${meta.map(x=>`<span>${x}</span>`).join('')}${done}</span>`:''}</div>`;
 }
 
 // ---------------- fleet ----------------
 function renderFleet(){
   main.innerHTML = `<div class="view stack">${banner}
-    <div><h1>Fleet</h1><p class="lede">Every machine and attachment. Pick a type, or search by ID, make, model or serial.</p></div>
+    <div class="head-row"><div><h1>Fleet</h1><p class="lede">Every machine and attachment. Pick a type, or search by ID, make, model or serial.</p></div>
+      ${isOffice() ? '<button type="button" class="btn small" id="addMachine">+ Add machine</button>' : ''}</div>
     <div class="controls">
       <input type="search" id="q" placeholder="Search, e.g. 336, D6, Valley Creek" value="${esc(state.q)}" aria-label="Search equipment">
       <label class="toggle"><input type="checkbox" id="ret" ${state.showRetired?'checked':''}> Include sold, scrapped and old equipment</label>
@@ -132,6 +134,7 @@ function renderFleet(){
     $('#out').innerHTML = rows.length ? `<p class="sub" style="margin:0 0 8px">${rows.length} shown</p><div class="list">${rows.map(e => eqRow(e,{showLoc:true})).join('')}</div>` : '<div class="panel empty">Nothing matches. Try fewer letters or clear the type filter.</div>';
   };
   $('#q').oninput = e => { state.q = e.target.value; draw(); };
+  if ($('#addMachine')) $('#addMachine').onclick = () => editMachine(null);
   $('#ret').onchange = e => { state.showRetired = e.target.checked; draw(); };
   $('#cats').onclick = e => { const b = e.target.closest('[data-c]'); if(b){ state.type = b.dataset.c; draw(); } };
   draw();
@@ -155,6 +158,7 @@ function renderMachine(e){
       <div><div class="k">Equipment</div><div class="eqid">${esc(e.id)}</div><div class="mm">${esc(mm || 'Make and model not set')}${e.yr?` · ${esc(e.yr)}`:''}</div></div>
       <div class="rt"><div class="k">Location now</div><div class="loc">${esc(e.loc || 'Not set')}</div>
         ${e.arrived ? `<div class="since">Here since ${fmt(e.arrived)} · ${daysSince(e.arrived)} days</div>` : ''}${statusPill(e.st)}</div>
+      ${isOffice() && !e.old ? `<div class="acts"><button type="button" class="btn band-btn" id="mvHere">Add move</button><button type="button" class="btn band-btn ghost" id="editHere">Edit details</button></div>` : ''}
     </section>
     ${mismatch ? `<div class="flag">The moves log last shows this going to <b>${esc(lm[4])}</b> on ${fmt(lm[0])}. Location says <b>${esc(e.loc)}</b>, which the app treats as correct. A move may have been missed.</div>` : ''}
     ${e.old ? `<div class="flag">This machine is in the Old Equipment table.</div>` : ''}
@@ -163,13 +167,17 @@ function renderMachine(e){
         <div class="panel"><h2>Details</h2>${facts.length ? `<dl class="facts">${facts.map(([k,v]) => `<dt>${k}</dt><dd>${typeof v==='string'&&!v.startsWith('<')?esc(v):v}</dd>`).join('')}</dl>` : '<p class="sub">No details entered yet.</p>'}</div>
         ${e.nt ? `<div class="panel"><h2>Notes</h2><div class="notes">${esc(e.nt)}</div></div>` : ''}
         <div class="panel"><h2>Photos &amp; spec sheets <small>${e.f.length ? `${photos} photo${photos===1?'':'s'}, ${docs} file${docs===1?'':'s'}` : ''}</small></h2>
-          ${e.f.length ? `${photos ? `<div class="gallery">${e.f.filter(f=>f[2]==='photo').map(f => `<button type="button" data-photo="${fileUrl(e,f)}" aria-label="${esc(f[1])}"><img src="${fileUrl(e,f)}&s=thumb" alt="${esc(f[1])}" loading="lazy"></button>`).join('')}</div>` : ''}
-            ${docs ? `<div class="files">${e.f.filter(f=>f[2]!=='photo').map(f => `<a class="file" href="${fileUrl(e,f)}" target="_blank" rel="noopener"><i>${f[2]==='pdf'?'PDF':'FILE'}</i><span>${esc(f[1])}</span></a>`).join('')}</div>` : ''}` : '<p class="sub">None attached.</p>'}</div>
+          ${isOffice() && !e.old ? `<label class="btn small secondary filebtn">+ Add photo or file<input type="file" id="addFiles" accept="image/*,application/pdf" multiple></label>` : ''}
+          ${e.f.length ? `${photos ? `<div class="gallery">${e.f.filter(f=>f[2]==='photo').map(f => photoTile(e,f)).join('')}</div>` : ''}
+            ${docs ? `<div class="files">${e.f.filter(f=>f[2]!=='photo').map(f => `<a class="file" href="${f[3] || fileUrl(e,f)}" target="_blank" rel="noopener"><i>${f[2]==='pdf'?'PDF':'FILE'}</i><span>${esc(f[1])}</span></a>`).join('')}</div>` : ''}` : '<p class="sub">None attached.</p>'}</div>
+        ${changePanel(e)}
       </div>
       <div class="panel"><h2>Move history <small>${moves.length} move${moves.length===1?'':'s'}</small></h2>
         ${moves.length ? `<div class="tl">${tl}</div>` : '<p class="sub">No moves logged under this ID.</p>'}</div>
     </div></div>`;
   $('#back').onclick = goBack;
+  if ($('#mvHere')) { $('#mvHere').onclick = () => moveForm({ eq: e }); $('#editHere').onclick = () => editMachine(e); }
+  if ($('#addFiles')) $('#addFiles').onchange = ev => addFiles(e, ev.target.files);
 }
 
 // ---------------- moves ----------------
@@ -178,7 +186,8 @@ function renderMoves(){
   const unmatched = MV.filter(m => m[2] < 0).length;
   const open = MV.filter(m => m[8]==='Need' || m[8]==='Scheduled');
   main.innerHTML = `<div class="view stack">${banner}
-    <div><h1>Moves</h1><p class="lede">All ${MV.length.toLocaleString()} moves since 2019, newest first.</p></div>
+    <div class="head-row"><div><h1>Moves</h1><p class="lede">All ${MV.length.toLocaleString()} moves since 2019, newest first.</p></div>
+      ${isOffice() ? '<button type="button" class="btn small" id="addMoveTop">+ Add move</button>' : ''}</div>
     <div class="stats">
       <div class="stat"><b>${MV.filter(m=>daysSince(m[0])<=7&&daysSince(m[0])>=0).length}</b><span>moves in the last 7 days</span></div>
       <div class="stat"><b>${MV.filter(m=>m[0]>='2026-01-01').length.toLocaleString()}</b><span>moves in 2026</span></div>
@@ -189,6 +198,7 @@ function renderMoves(){
       <input type="search" id="mq" placeholder="Search machine, site or driver" value="${esc(state.mq)}" aria-label="Search moves">
       <select id="yr" aria-label="Year"><option value="">All years</option>${years.map(y=>`<option ${y===state.myear?'selected':''}>${y}</option>`).join('')}</select>
     </div>
+    ${open.length ? `<div class="panel"><h2>Scheduled and needed <small>${open.length}</small></h2><div class="tl">${open.map(m => moveLine(m, true)).join('')}</div></div>` : ''}
     <label class="toggle"><input type="checkbox" id="um" ${state.mOnlyUnmatched?'checked':''}> Only moves that couldn't be matched to a machine (${unmatched})</label>
     <div id="mout" class="stack"></div></div>`;
   const draw = () => {
@@ -205,6 +215,7 @@ function renderMoves(){
       </tbody></table></div>${rows.length>shown.length?'<button class="more" id="more">Show 100 more</button>':''}` : '<div class="panel empty">No moves match.</div>';
     const more = $('#more'); if (more) more.onclick = () => { state.mShown += 100; draw(); };
   };
+  if ($('#addMoveTop')) $('#addMoveTop').onclick = () => moveForm({});
   $('#mq').oninput = e => { state.mq = e.target.value; state.mShown = 100; draw(); };
   $('#yr').onchange = e => { state.myear = e.target.value; state.mShown = 100; draw(); };
   $('#um').onchange = e => { state.mOnlyUnmatched = e.target.checked; state.mShown = 100; draw(); };
@@ -227,16 +238,16 @@ const ago = t => { const m = Math.round((Date.now() - t) / 60e3); return m < 1 ?
 function showUpdated(){
   const u = $('#updated');
   if (!D) { u.innerHTML = ''; return; }
-  u.innerHTML = `Updated ${ago(D.asOf)}<button type="button" id="refresh">Refresh</button><button type="button" id="signout">Sign out</button>`;
+  u.innerHTML = `<span id="upd">Updated ${ago(D.asOf)}</span>${isOffice() ? `<span class="who">Office · ${esc(D.office.name)}</span>` : ''}<button type="button" id="refresh">Refresh</button><button type="button" id="signout">Sign out</button>`;
   $('#refresh').onclick = refreshNow;
-  $('#signout').onclick = async () => { await fetch('/api/logout', { method: 'POST' }); D = null; showUpdated(); showPin(); };
+  $('#signout').onclick = async () => { await fetch('/api/logout', { method: 'POST' }); D = null; $('#fab').hidden = true; showUpdated(); showPin(); };
 }
-setInterval(() => { if (D) $('#updated').firstChild.textContent = `Updated ${ago(D.asOf)}`; }, 60e3);
+setInterval(() => { if (D && $('#upd')) $('#upd').textContent = `Updated ${ago(D.asOf)}`; }, 60e3);
 
 function showPin(msg){
   $('#tabbar').hidden = true;
   main.innerHTML = `<form class="pin" id="pinForm">
-    <h1>Sign in</h1><p class="lede">Enter the equipment viewer PIN.</p>
+    <h1>Sign in</h1><p class="lede">Enter the equipment viewer PIN, or the office PIN to make changes.</p>
     <input type="password" id="pin" inputmode="text" autocomplete="current-password" autocapitalize="off" spellcheck="false" aria-label="PIN" placeholder="PIN">
     <div class="msg warn" id="pinErr" role="alert" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
     <button class="btn" type="submit" id="pinGo">Sign in</button></form>`;
@@ -245,7 +256,7 @@ function showPin(msg){
     ev.preventDefault();
     const go = $('#pinGo'); go.disabled = true; go.textContent = 'Checking…';
     const r = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pin: $('#pin').value }) }).catch(() => null);
-    if (r && r.ok) return load();
+    if (r && r.ok) { const b = await r.json().catch(() => ({})); return b.needName ? showName() : load(); }
     const err = r ? (await r.json().catch(() => ({}))).error : 'No connection. Check your signal and try again.';
     showPin(err || 'Sign-in failed. Try again.');
   };
@@ -279,6 +290,7 @@ async function load(){
   prepare(res.data);
   showUpdated();
   $('#tabbar').hidden = false;
+  $('#fab').hidden = !isOffice();
   if (first) render(); else rerenderKeepingPlace();
 }
 
@@ -311,4 +323,3 @@ document.addEventListener('visibilitychange', async () => {
   if (res.data && res.data.asOf !== D.asOf) { prepare(res.data); showUpdated(); rerenderKeepingPlace(); }
 });
 
-load();

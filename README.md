@@ -1,24 +1,30 @@
 # LH Equipment Viewer
 
-A view-only web app for the **LH Equipment** Airtable base: what's on each
-jobsite, the whole fleet by type, full details and photos for every machine,
-and every move since 2019. It never changes anything in Airtable. It runs on
-Netlify, like the PM Service and Timecard apps.
+A web app for the **LH Equipment** Airtable base: what's on each jobsite, the
+whole fleet by type, full details and photos for every machine, and every move
+since 2019. It runs on Netlify, like the PM Service and Timecard apps.
 
-- Everyone: `https://<your-site>/` (sign in with the viewer PIN)
+- **Viewers** sign in with the viewer PIN and can only look.
+- **The office** signs in with the office PIN and their name, and can add moves,
+  mark scheduled moves done, edit machine details, add photos and PDFs, and add
+  machines. Every change goes straight to Airtable and is recorded in the
+  **Change Log** table with who made it.
 
 ---
 
-## 1. Create a read-only Airtable token
+## 1. Create the Airtable token
 
-1. Go to <https://airtable.com/create/tokens> → **Create new token**.
-2. Name it `Equipment viewer`.
-3. **Scopes:** add only `data.records:read`.
-4. **Access:** add the **LH Equipment** base.
-5. Click **Create token** and copy it. You'll paste it into Netlify in step 3.
+1. Go to <https://airtable.com/create/tokens> → **Create new token**
+   (or open the existing `Equipment viewer` token and edit it).
+2. **Scopes:** `data.records:read`, `data.records:write` and `schema.bases:read`.
+   The last one lets the edit forms show your Airtable dropdown lists.
+3. **Access:** add the **LH Equipment** base.
+4. Save, and copy the token if it's new. You'll paste it into Netlify in step 3.
    Don't email it or paste it anywhere else.
 
-Because the token can only read, the app can't change your data even by mistake.
+The app only writes to **Equipment Info** (machine details, Location, photos),
+**Moves** (new moves, marking moves done) and **Change Log**. It never deletes
+anything except to undo a change in the first 5 minutes.
 
 ## 2. Put the code on Netlify
 
@@ -31,7 +37,7 @@ Because the token can only read, the app can't change your data even by mistake.
 3. In Netlify, choose **Add new site → Import an existing project → GitHub** and
    pick `equipment-viewer`. Leave the build settings as they are and click **Deploy**.
 
-## 3. Add the three settings in Netlify
+## 3. Add the settings in Netlify
 
 In the new site, go to **Site configuration → Environment variables → Add a variable**:
 
@@ -39,13 +45,15 @@ In the new site, go to **Site configuration → Environment variables → Add a 
 |---|---|
 | `AIRTABLE_TOKEN` | the token from step 1 |
 | `SESSION_SECRET` | any long random text, at least 24 characters (use a password generator) |
-| `VIEWER_PIN` | the PIN people will type to get in |
+| `VIEWER_PIN` | the PIN people will type to look around |
+| `OFFICE_PIN` | a different PIN, for the office only. Make it longer than the viewer PIN |
 
 Then go to **Deploys → Trigger deploy → Deploy site** so the app picks them up.
 
-To **change the PIN** later, edit `VIEWER_PIN` here and redeploy. Everyone is
-signed out and enters the new PIN once. Otherwise people stay signed in on
-their phone for 60 days.
+To **change a PIN** later, edit `VIEWER_PIN` or `OFFICE_PIN` here and redeploy.
+People using that PIN are signed out and enter the new one once. Otherwise
+people stay signed in on their phone for 60 days. Without `OFFICE_PIN`, the app
+is view-only for everyone.
 
 ## 4. Your own web address (optional)
 
@@ -67,13 +75,34 @@ screen** (Android) so it opens like an app.
 
 ---
 
+## Office editing
+
+- **Add move:** the green **+ Add move** button, or the one on a machine page.
+  Pick the machine from the list, pick where it went, and save. A **Complete**
+  move also sets the machine's **Location**. A **Scheduled** or **Need** move
+  leaves Location alone until someone taps **Mark done** (Moves tab, or the
+  machine's history).
+- **Edit details** on a machine page. Changing Location offers to log it as a move.
+- **+ Add photo or file** on a machine page. Phone photos are shrunk to fit
+  Airtable's 5 MB limit. PDFs are added as they are.
+- **+ Add machine** under Fleet. The Equipment ID must be new, and a Type is required.
+- **Undo** appears after every save, for 5 minutes. After that, change it back
+  with Edit, or in Airtable.
+- **Someone else's change is never overwritten.** If a field changed in Airtable
+  after you opened the form, the save is refused and asks you to refresh.
+- Each machine page lists **Changes made in the app**, from the Change Log table.
+- New moves get **Entered By** filled in, and their Moves **Type** set from the
+  machine when your Moves Type list has a match.
+
 ## How it works
 
 - **Where a machine is** comes from its **Location** field in Equipment Info.
   Moves are history. When the last move disagrees with Location, the machine's
   page says a move may have been missed.
-- **Fresh data:** the app keeps a copy of Equipment Info, Old Equipment and
-  Moves, refreshed from Airtable every 15 minutes, so pages open instantly.
+- **Fresh data:** the app keeps a copy of Equipment Info, Old Equipment, Moves
+  and the Change Log, refreshed from Airtable every 15 minutes, so pages open
+  instantly. Changes made in the app show up for everyone right away; changes
+  made directly in Airtable show up within 15 minutes.
   The header shows when it was last updated. **Refresh** gets changes
   right away (it takes about 20 seconds).
 - **Moves are matched to machines** by Equipment ID, ignoring dashes, spaces,
@@ -94,11 +123,13 @@ screen** (Android) so it opens like an app.
 ## For a developer
 
 - `public/`: the page (`index.html`, `app.js`, `styles.css`).
-- `lib/`: the API (`app.mjs`), the Airtable reader, the 15-minute refresh
-  (`sync.mjs`), and `config.mjs` with every Airtable ID.
+- `lib/`: the API (`app.mjs`), office editing (`edit.mjs`), the Airtable
+  client, the 15-minute refresh (`sync.mjs`), and `config.mjs` with every
+  Airtable ID.
+- `public/edit.js`: the office forms. Viewers load it too but never see them.
 - `netlify/functions/`: `api` for `/api/*`, `sync-background` (started when the
   copy is older than 15 minutes) and `sync-scheduled` (every 15 minutes).
 - One dependency, `@netlify/blobs`, for the saved copy.
 - `npm test` runs the API tests against a saved copy of the real records in
   `test/fixtures`. `npm run dev` runs a local preview at http://localhost:8890
-  (PIN `2468`).
+  (PIN `2468` to look, `1357` for the office). Saves go to an in-memory copy.
