@@ -117,7 +117,7 @@ function moveForm({ eq = null }){
       <div class="fg"><label for="mvFrom">From</label><select id="mvFrom">${siteOptions(picked?.loc, { allowBlank: true })}</select><input id="mvFromNew" placeholder="New site name" hidden></div>
       <div class="fg"><label for="mvTo">To</label><select id="mvTo">${siteOptions('', { allowBlank: true })}</select><input id="mvToNew" placeholder="New site name" hidden></div>
     </div>
-    <div class="fg"><span class="lbl">Status</span><div class="seg" id="mvSt">${['Complete','Scheduled','Need'].map((s,i) => `<label><input type="radio" name="mvSt" value="${s}" ${i?'':'checked'}><span>${s}</span></label>`).join('')}</div></div>
+    <div class="fg"><span class="lbl">Status</span><div class="seg" id="mvSt">${['Scheduled','Complete','Need'].map((s,i) => `<label><input type="radio" name="mvSt" value="${s}" ${i?'':'checked'}><span>${s}</span></label>`).join('')}</div></div>
     <div class="fg2">
       <div class="fg"><label for="mvDate">Date</label><input id="mvDate" type="date" value="${today}"></div>
       <div class="fg"><label for="mvPermit">Permit #</label><input id="mvPermit" inputmode="numeric" placeholder="n/a"></div>
@@ -190,7 +190,7 @@ function editMoveForm(m){
       <div class="fg"><label for="mvFrom">From</label><select id="mvFrom">${siteOptions(m[3], { allowBlank: true })}</select><input id="mvFromNew" placeholder="New site name" hidden></div>
       <div class="fg"><label for="mvTo">To</label><select id="mvTo">${siteOptions(m[4], { allowBlank: true })}</select><input id="mvToNew" placeholder="New site name" hidden></div>
     </div>
-    <div class="fg"><span class="lbl">Status</span><div class="seg" id="mvSt">${['Complete','Scheduled','Need'].map(s => `<label><input type="radio" name="mvSt" value="${s}" ${s===m[8]?'checked':''}><span>${s}</span></label>`).join('')}</div></div>
+    <div class="fg"><span class="lbl">Status</span><div class="seg" id="mvSt">${['Scheduled','Complete','Need'].map(s => `<label><input type="radio" name="mvSt" value="${s}" ${s===m[8]?'checked':''}><span>${s}</span></label>`).join('')}</div></div>
     <div class="fg2">
       <div class="fg"><label for="mvDate">Date</label><input id="mvDate" type="date" value="${esc(m[0])}"></div>
       <div class="fg"><label for="mvPermit">Permit #</label><input id="mvPermit" inputmode="numeric" placeholder="n/a" value="${esc(permit0)}"></div>
