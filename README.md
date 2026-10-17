@@ -101,7 +101,7 @@ screen** (Android) so it opens like an app.
 ## Office TV screen (NoviSign)
 
 `https://<your-site>/tv?key=<TV_KEY>` shows every jobsite and its equipment,
-plus scheduled and needed moves and this week's moves, on one 16:9 screen. It's
+plus scheduled and needed moves, on one 16:9 screen. It's
 laid out at 1920 x 1080 and scales to fit any screen size.
 
 - **Turn it on:** in Netlify, add an environment variable `TV_KEY` set to a long
