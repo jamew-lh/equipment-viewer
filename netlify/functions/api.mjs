@@ -1,4 +1,4 @@
-// Netlify entry point for /api/*.
+// Netlify entry point for /api/* and the office TV screen at /tv.
 import { handle } from '../../lib/app.mjs';
 import { makeAirtable } from '../../lib/airtable.mjs';
 import { openStore } from '../../lib/store.mjs';
@@ -11,6 +11,7 @@ export default async (req, context) => {
     SESSION_SECRET: Netlify.env.get('SESSION_SECRET'),
     VIEWER_PIN: Netlify.env.get('VIEWER_PIN'),
     OFFICE_PIN: Netlify.env.get('OFFICE_PIN'),
+    TV_KEY: Netlify.env.get('TV_KEY'),
   };
   return handle(req, {
     env,
@@ -29,4 +30,4 @@ export default async (req, context) => {
   });
 };
 
-export const config = { path: '/api/*' };
+export const config = { path: ['/api/*', '/tv'] };

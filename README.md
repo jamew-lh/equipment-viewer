@@ -98,6 +98,27 @@ screen** (Android) so it opens like an app.
 - New moves get **Entered By** filled in, and their Moves **Type** set from the
   machine when your Moves Type list has a match.
 
+## Office TV screen (NoviSign)
+
+`https://<your-site>/tv?key=<TV_KEY>` shows every jobsite and its equipment,
+plus scheduled and needed moves and this week's moves, on one 16:9 screen. It's
+laid out at 1920 x 1080 and scales to fit any screen size.
+
+- **Turn it on:** in Netlify, add an environment variable `TV_KEY` set to a long
+  random string (a password generator's 32 characters, letters and numbers), then
+  redeploy. The key in the link is the screen's password, since a signage player
+  can't type a PIN. To shut off an old link, change `TV_KEY` and redeploy.
+- **NoviSign:** in Studio, make a creative at 1920 x 1080 (landscape), drag an
+  **Embed** widget over the whole canvas, choose **URL**, and paste the link.
+  Leave the widget's reload/refresh off: the page refreshes its own data every
+  minute and reloads itself once a night at 3 AM.
+- **What it shows:** the same pieces as Jobsites (not sold, scrapped, auctioned,
+  no Type, or generators), grouped by type in the Jobsites order, with buckets
+  last. Down for maintenance is red. Changes made in the app show up within a
+  minute; changes made directly in Airtable within about 15 minutes.
+- If the screen loses internet it keeps showing the last data and says so in the
+  top right corner.
+
 ## How it works
 
 - **Where a machine is** comes from its **Location** field in Equipment Info.

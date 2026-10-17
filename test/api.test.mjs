@@ -175,3 +175,24 @@ test('close but different sites stay separate', () => {
   assert.equal(name('Brandywine'), 'Brandywine');
   assert.equal(name('Morgantown Field'), 'Morgantown Field');
 });
+
+test('office TV screen: needs the right key, and lists every jobsite with its equipment', async () => {
+  const deps0 = setup({ env: { ...env, TV_KEY: 'k'.repeat(32) } });
+  const { call, deps } = deps0;
+  assert.equal((await call('/tv?key=wrong')).status, 403);
+  const page = await call(`/tv?key=${'k'.repeat(32)}`);
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get('content-type'), /text\/html/);
+  assert.equal((await call(`/api/tv?key=${'k'.repeat(32)}`)).status, 202, 'no data yet: it starts a refresh');
+  await syncNow(deps);
+  const d = await (await call(`/api/tv?key=${'k'.repeat(32)}`)).json();
+  assert.equal(d.total, 176);
+  assert.equal(d.sites.reduce((n, s) => n + s.count, 0), 176);
+  const toa = d.sites.find((s) => s.name === 'TOA 3');
+  assert.deepEqual(toa.groups.map((g) => g.type).slice(0, 3), ['Excavators', 'Dozers', 'Trucks']);
+  assert.equal(toa.groups.at(-1).type, 'Buckets');
+  assert.ok(!JSON.stringify(d).includes('H3200'), 'generators are left off');
+  assert.equal(d.open.length, 1);
+  const off = setup({ env: { ...env, TV_KEY: '' } });
+  assert.equal((await off.call('/tv?key=x')).status, 404);
+});
