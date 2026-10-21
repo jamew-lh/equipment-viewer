@@ -118,6 +118,11 @@ laid out at 1920 x 1080 and scales to fit any screen size.
   minute; changes made directly in Airtable within about 15 minutes.
 - If the screen loses internet it keeps showing the last data and says so in the
   top right corner.
+- **Seasonal look:** from October 20 to 31 (Eastern time) the screen switches
+  itself to a Halloween look, and back to normal on November 1, without a reload.
+  The dates live in `THEMES` near the bottom of `lib/tv.mjs`; add another line there
+  for another holiday. To force a look, add `&theme=halloween` to the link, or
+  `&theme=normal` to keep the regular look all year.
 
 ## How it works
 
