@@ -20,7 +20,8 @@ EQ.forEach((e, i) => {
   // Only machines with TRACKING ticked in Airtable show in the app. (Old Equipment has no
   // TRACKING box; it shows under "Include sold, scrapped and old" when it has a Type.)
   // Moves for hidden machines stay in the Moves log as plain text.
-  e.hidden = e.old ? !e.ty : !e.tk;
+  // (A machine with no TRACKING value at all, from a copy made before the box existed, counts as tracked.)
+  e.hidden = e.old ? !e.ty : e.tk === false;
   const last = byEq[i].find(j => MV[j][8] !== 'Need' && MV[j][8] !== 'Scheduled');
   e.lastMove = last != null ? MV[last] : null;
   // arrived at current location: newest completed move whose To matches Location

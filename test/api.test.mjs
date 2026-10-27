@@ -196,3 +196,19 @@ test('office TV screen: needs the right key, and lists every jobsite with its eq
   const off = setup({ env: { ...env, TV_KEY: '' } });
   assert.equal((await off.call('/tv?key=x')).status, 404);
 });
+
+test('a saved copy made by older code is shown in full and rebuilt straight away', async () => {
+  const { call, signIn, deps } = setup();
+  await syncNow(deps);
+  // Make it look like a copy saved before TRACKING existed, 1 minute ago.
+  const snap = await deps.store.get('snapshot');
+  delete snap.v; for (const e of snap.eq) delete e.tk;
+  await deps.store.set('snapshot', snap);
+  const cookie = await signIn();
+  const r = await call('/api/data', { cookie });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('x-refreshing'), 'true', 'it starts a fresh read even though the copy is new');
+  assert.equal(deps.syncs, 1);
+  assert.ok((await r.json()).eq.every((e) => e.tk === undefined), 'no TRACKING values to hide anything with');
+  assert.equal((await (await call('/api/refresh', { method: 'POST', cookie })).json()).started, true, 'Refresh is allowed too');
+});
