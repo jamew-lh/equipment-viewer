@@ -17,8 +17,10 @@ byEq = EQ.map(() => []);
 MV.forEach((m, i) => { if (m[2] >= 0) byEq[m[2]].push(i); });
 EQ.forEach((e, i) => {
   e.i = i; e.retired = !!e.old || RETIRED_LOC.has(e.loc) || RETIRED_ST.has(e.st);
-  // Left out of the app: anything with no Type, and generators. Their moves stay in the Moves log.
-  e.hidden = !e.ty || HIDDEN_TYPES.includes(e.ty);
+  // Only machines with TRACKING ticked in Airtable show in the app. (Old Equipment has no
+  // TRACKING box; it shows under "Include sold, scrapped and old" when it has a Type.)
+  // Moves for hidden machines stay in the Moves log as plain text.
+  e.hidden = e.old ? !e.ty : !e.tk;
   const last = byEq[i].find(j => MV[j][8] !== 'Need' && MV[j][8] !== 'Scheduled');
   e.lastMove = last != null ? MV[last] : null;
   // arrived at current location: newest completed move whose To matches Location
@@ -50,7 +52,6 @@ const TYPE_ORDER = ['Excavator','Dozer','Articulating Truck','Roller',
   'Trench Box','Shoring','Manhole Box','Stone Box'];
 const typeRank = t => { if (t === 'Bucket') return 1e4; if (t === 'Type not set') return 9e3; const i = TYPE_ORDER.indexOf(t); return i < 0 ? 1e3 : i; };
 const byTypeOrder = (a, b) => typeRank(a) - typeRank(b) || a.localeCompare(b);
-const HIDDEN_TYPES = ['Generator'];
 const state = { site:null, q:'', type:'', showRetired:false, mq:'', myear:'', mOnlyUnmatched:false, mShown:100 };
 function setTab(t){ tab=t; stack=[]; for(const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', b.id==='t-'+t); render(); window.scrollTo(0,0); }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.site=null; setTab(b.id.slice(2)); });

@@ -124,6 +124,15 @@ laid out at 1920 x 1080 and scales to fit any screen size.
   for another holiday. To force a look, add `&theme=halloween` to the link, or
   `&theme=normal` to keep the regular look all year.
 
+## What the app shows: the TRACKING box
+
+Only machines with **TRACKING** ticked in Equipment Info appear in the app and on
+the office TV screen (Jobsites, Fleet, machine pages and the move pickers). Untick
+it for trucks, placeholders like "Rental Dozer", or anything you don't want listed.
+Their moves stay in the Moves log as plain text. The office can tick or untick it
+from **Edit details**, and machines added in the app start ticked. Old Equipment
+has no TRACKING box and still shows under "Include sold, scrapped and old".
+
 ## How it works
 
 - **Where a machine is** comes from its **Location** field in Equipment Info.
@@ -142,7 +151,7 @@ laid out at 1920 x 1080 and scales to fit any screen size.
 - **Site names** typed in Moves ("BWW", "TOA", "Culebrtson") are grouped under one
   name. If one is grouped wrong, add a line to `lib/sites.mjs` (instructions are
   at the top of that file).
-- **Sold, scrapped and auctioned** pieces (Location Auction, Scrap, Trade In or
+- **Sold, scrapped and auctioned** pieces (even with TRACKING ticked) (Location Auction, Scrap, Trade In or
   HB Shop - TRASH, or Status Sold/Trade) are left off Jobsites and hidden in Fleet
   unless "Include sold, scrapped and old equipment" is ticked. The list is in
   `lib/config.mjs`.

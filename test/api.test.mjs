@@ -186,12 +186,12 @@ test('office TV screen: needs the right key, and lists every jobsite with its eq
   assert.equal((await call(`/api/tv?key=${'k'.repeat(32)}`)).status, 202, 'no data yet: it starts a refresh');
   await syncNow(deps);
   const d = await (await call(`/api/tv?key=${'k'.repeat(32)}`)).json();
-  assert.equal(d.total, 176);
-  assert.equal(d.sites.reduce((n, s) => n + s.count, 0), 176);
+  assert.equal(d.total, 173, 'only machines with TRACKING ticked');
+  assert.equal(d.sites.reduce((n, s) => n + s.count, 0), 173);
   const toa = d.sites.find((s) => s.name === 'TOA 3');
   assert.deepEqual(toa.groups.map((g) => g.type).slice(0, 3), ['Excavators', 'Dozers', 'Trucks']);
   assert.equal(toa.groups.at(-1).type, 'Buckets');
-  assert.ok(!JSON.stringify(d).includes('H3200'), 'generators are left off');
+  for (const id of ['H3200', 'LEROI AIR COMPRESSOR', 'CVP75-01']) assert.ok(!JSON.stringify(d.sites).includes(id), `${id} has TRACKING unticked`);
   assert.equal(d.open.length, 1);
   const off = setup({ env: { ...env, TV_KEY: '' } });
   assert.equal((await off.call('/tv?key=x')).status, 404);

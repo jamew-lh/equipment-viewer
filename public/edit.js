@@ -294,11 +294,11 @@ main.addEventListener('click', ev => {
 // ---------- edit a machine, or add a new one ----------
 const EDIT_FIELDS = [
   ['loc', 'Location'], ['st', 'Status'], ['ty', 'Type'], ['mk', 'Make'], ['md', 'Model'], ['yr', 'Year'],
-  ['sn', 'Serial number'], ['wt', 'Operating weight'], ['dl', 'Dealer'], ['flt', 'Filter list'], ['tooth', 'Tooth type'], ['nt', 'Notes'],
+  ['sn', 'Serial number'], ['wt', 'Operating weight'], ['dl', 'Dealer'], ['flt', 'Filter list'], ['tooth', 'Tooth type'], ['nt', 'Notes'], ['tk', 'TRACKING'],
 ];
 function editMachine(e){
   const isNew = !e;
-  const v = e || { id: '', loc: '', st: 'In Service', ty: '', mk: '', md: '', yr: '', sn: '', wt: '', dl: [], flt: '', tooth: '', nt: '', f: [] };
+  const v = e || { id: '', loc: '', st: 'In Service', ty: '', mk: '', md: '', yr: '', sn: '', wt: '', dl: [], flt: '', tooth: '', nt: '', tk: true, f: [] };
   const C = D.choices || {};
   openSheet(isNew ? 'Add machine' : `Edit ${e.id}`, `
     ${isNew ? `<div class="fg"><label for="edId">Equipment ID</label><input id="edId" class="mono" autocapitalize="characters" placeholder="e.g. 336-07" autofocus></div>` : ''}
@@ -324,7 +324,8 @@ function editMachine(e){
       <div class="fg"><label for="edFlt">Filter list</label><input id="edFlt" class="mono" value="${esc(v.flt)}"></div>
       <div class="fg"><label for="edTooth">Tooth type</label><input id="edTooth" value="${esc(v.tooth)}"></div>
     </div>
-    <div class="fg"><label for="edNt">Notes</label><textarea id="edNt" rows="4">${esc(v.nt)}</textarea></div>`, {
+    <div class="fg"><label for="edNt">Notes</label><textarea id="edNt" rows="4">${esc(v.nt)}</textarea></div>
+    <label class="check"><input type="checkbox" id="edTk" ${v.tk ? 'checked' : ''}> <span><b>TRACKING</b>: show this machine in the app and on the office screen. Untick it to hide the machine; its moves stay in the Moves log.</span></label>`, {
     saveLabel: isNew ? 'Add machine' : 'Save changes',
     onMount(){
       const getLoc = wireNewSite('edLoc', 'edLocNew');
@@ -338,7 +339,7 @@ function editMachine(e){
       const next = { loc: this.getLoc(), st: $('#edSt').value, ty: $('#edTy').value, mk: $('#edMk').value.trim(), md: $('#edMd').value.trim(),
         yr: $('#edYr').value.trim(), sn: $('#edSn').value.trim(), wt: $('#edWt').value.trim(),
         dl: [...sheetEl.querySelectorAll('[data-dl][aria-pressed="true"]')].map(b => b.dataset.dl),
-        flt: $('#edFlt').value.trim(), tooth: $('#edTooth').value.trim(), nt: $('#edNt').value.replace(/\s+$/, '') };
+        flt: $('#edFlt').value.trim(), tooth: $('#edTooth').value.trim(), nt: $('#edNt').value.replace(/\s+$/, ''), tk: $('#edTk').checked };
       if (next.yr && !/^(19|20)\d\d$/.test(next.yr)) fail('Year should be four digits, like 2019.');
       if (isNew) {
         const id = $('#edId').value.trim().toUpperCase();
@@ -360,13 +361,16 @@ function editMachine(e){
       const res = await api('PATCH', '/api/machines', { rec: e.rec, expect: before, set: Object.fromEntries(changed.map(([k]) => [k, next[k]])), logMove, date: localDate() });
       const mem = remember(e);
       for (const [k, label] of changed) {
-        const show = x => Array.isArray(x) ? x.join(', ') : k === 'nt' ? (x ? 'edited' : '') : x;
+        const show = x => k === 'tk' ? (x ? 'Ticked' : 'Not ticked') : Array.isArray(x) ? x.join(', ') : k === 'nt' ? (x ? 'edited' : '') : x;
         addLog(e, label, k === 'nt' ? '' : show(e[k]), k === 'nt' ? (next.nt ? 'Notes edited' : '') : show(next[k]));
         e[k] = next[k];
       }
       if (logMove) { insertMove([localDate(), e.id, e.i, before.loc, next.loc, '', '', 'n/a', 'Complete', '', '', res.moveId, D.office.name]); addLog(e, 'Move', before.loc, next.loc); }
-      prepare(D); rerenderKeepingPlace();
-      toast(`Saved ${changed.length} change${changed.length === 1 ? '' : 's'} to <b>${esc(e.id)}</b>.`, async () => { await api('POST', '/api/undo', { token: res.undo }); restore(mem); });
+      prepare(D);
+      const untracked = before.tk === true && !e.tk;
+      if (untracked) goBack(); else rerenderKeepingPlace();
+      toast(untracked ? `<b>${esc(e.id)}</b> is no longer tracked, so it's hidden from the app.` : `Saved ${changed.length} change${changed.length === 1 ? '' : 's'} to <b>${esc(e.id)}</b>.`,
+        async () => { await api('POST', '/api/undo', { token: res.undo }); restore(mem); });
     },
   });
 }

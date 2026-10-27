@@ -279,3 +279,20 @@ test('editing a move refuses to overwrite a change made in Airtable meanwhile', 
   assert.equal(r.status, 409);
   assert.match(r.body.error, /Driver/);
 });
+
+test('TRACKING: new machines start ticked; the office can untick it, and undo ticks it again', async () => {
+  const { call, office, data, rec, byId } = await setup();
+  const o = await office();
+  const r = await call('/api/machines', { method: 'POST', cookie: o, body: { id: '336-09', ty: 'Excavator', loc: 'Odessa' } });
+  assert.equal(rec(EQUIPMENT.table, r.body.rec).fields[E.tracking], true);
+  assert.equal((await data(o)).eq.find((x) => x.id === '336-09').tk, true);
+  const m = byId('336-05');
+  assert.equal(m.fields[E.tracking], true);
+  const u = await call('/api/machines', { method: 'PATCH', cookie: o, body: { rec: m.id, expect: { tk: true }, set: { tk: false } } });
+  assert.equal(u.status, 200, JSON.stringify(u.body));
+  assert.ok(!rec(EQUIPMENT.table, m.id).fields[E.tracking]);
+  assert.equal((await data(o)).eq.find((x) => x.id === '336-05').tk, false);
+  await call('/api/undo', { method: 'POST', cookie: o, body: { token: u.body.undo } });
+  assert.equal(rec(EQUIPMENT.table, m.id).fields[E.tracking], true);
+  assert.equal((await data(o)).eq.find((x) => x.id === '336-05').tk, true);
+});
