@@ -111,17 +111,24 @@ laid out at 1920 x 1080 and scales to fit any screen size.
 - **NoviSign:** in Studio, make a creative at 1920 x 1080 (landscape), drag an
   **Embed** widget over the whole canvas, choose **URL**, and paste the link.
   Leave the widget's reload/refresh off: the page refreshes its own data every
-  minute and reloads itself once a night at 3 AM.
+  minute during the day and reloads itself once a day at 4 AM.
+- **Overnight quiet hours (6 PM to 4 AM Eastern):** to save Airtable calls, nothing
+  reads from Airtable on a schedule overnight and the screen stops asking for
+  updates. It keeps showing the last data with "Paused overnight · updates resume
+  at 4 AM", and picks up fresh data at 4 AM. Anyone opening the app on a phone or
+  computer overnight still gets fresh data. Change the hours in `QUIET_HOURS` in
+  `lib/config.mjs`.
 - **What it shows:** the same pieces as Jobsites (not sold, scrapped, auctioned,
   no Type, or generators), grouped by type in the Jobsites order, with buckets
   last. Down for maintenance is red. Changes made in the app show up within a
   minute; changes made directly in Airtable within about 15 minutes.
 - If the screen loses internet it keeps showing the last data and says so in the
   top right corner.
-- **Seasonal look:** from October 20 to 31 (Eastern time) the screen switches
-  itself to a Halloween look, and back to normal on November 1, without a reload.
+- **Seasonal looks:** the screen changes look by itself (Eastern dates, no reload):
+  fall from September 22 to October 19, Halloween from October 20 to 31, fall again
+  from November 1 to 30, and the normal look the rest of the year.
   The dates live in `THEMES` near the bottom of `lib/tv.mjs`; add another line there
-  for another holiday. To force a look, add `&theme=halloween` to the link, or
+  for another holiday. To force a look, add `&theme=fall` or `&theme=halloween` to the link, or
   `&theme=normal` to keep the regular look all year.
 
 ## What the app shows: the TRACKING box
