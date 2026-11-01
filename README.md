@@ -112,11 +112,12 @@ laid out at 1920 x 1080 and scales to fit any screen size.
   **Embed** widget over the whole canvas, choose **URL**, and paste the link.
   Leave the widget's reload/refresh off: the page refreshes its own data every
   minute during the day and reloads itself once a day at 4 AM.
-- **Overnight quiet hours (6 PM to 4 AM Eastern):** to save Airtable calls, nothing
-  reads from Airtable on a schedule overnight and the screen stops asking for
-  updates. It keeps showing the last data with "Paused overnight · updates resume
-  at 4 AM", and picks up fresh data at 4 AM. Anyone opening the app on a phone or
-  computer overnight still gets fresh data. Change the hours in `QUIET_HOURS` in
+- **Quiet hours (Eastern): weeknights 6 PM to 4 AM, and all weekend from Friday
+  6 PM to Monday 4 AM.** To save Airtable calls, nothing reads from Airtable on a
+  schedule then and the screen stops asking for updates. It keeps showing the last
+  data with "Paused overnight" or "Paused for the weekend", and picks up fresh data
+  at 4 AM. Anyone opening the app on a phone or computer then still gets fresh
+  data. Change the hours, or set `weekends: false`, in `QUIET_HOURS` in
   `lib/config.mjs`.
 - **What it shows:** the same pieces as Jobsites (not sold, scrapped, auctioned,
   no Type, or generators), grouped by type in the Jobsites order, with buckets
