@@ -200,9 +200,33 @@ function editMoveForm(m){
       <div class="fg"><label for="mvTruck">Truck</label><input id="mvTruck" list="dlTrucks" autocomplete="off" class="mono" value="${esc(m[6])}"><datalist id="dlTrucks">${trucks.map(d => `<option value="${esc(d)}">`).join('')}</datalist></div>
     </div>
     <label class="check" id="mvLocWrap" hidden><input type="checkbox" id="mvLoc"> <span id="mvLocText"></span></label>
-    ${m[12] ? `<p class="sub" style="margin:0">Entered by ${esc(m[12])}</p>` : ''}`, {
+    ${m[12] ? `<p class="sub" style="margin:0">Entered by ${esc(m[12])}</p>` : ''}
+    ${m[11] ? `<div class="delzone" id="mvDelZone"><button type="button" class="btn danger" id="mvDel">Delete this move</button></div>` : ''}`, {
     saveLabel: 'Save changes',
     onMount(){
+      if ($('#mvDel')) $('#mvDel').onclick = () => {
+        const z = $('#mvDelZone');
+        const day = m[0] ? new Date(m[0] + 'T12:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        z.innerHTML = `<p>Delete the ${esc(m[8] || '')} move of <b>${esc(m[1] || 'no ID')}</b> to <b>${esc(m[4] || '?')}</b>${day ? ` on ${esc(day)}` : ''}? It's removed from Airtable.${m[8] === 'Complete' ? ` The machine's Location isn't changed.` : ''}</p>
+          <div class="row"><button type="button" class="btn danger" id="mvDelYes">Yes, delete it</button><button type="button" class="btn secondary" id="mvDelNo">Keep it</button></div>`;
+        z.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        $('#mvDelNo').onclick = () => { z.innerHTML = '<button type="button" class="btn danger" id="mvDel">Delete this move</button>'; this.onMount.call(this, true); };
+        $('#mvDelYes').onclick = async () => {
+          const yes = $('#mvDelYes'); yes.disabled = true; yes.textContent = 'Deleting…'; const err = $('#sheetErr'); err.hidden = true;
+          try {
+            const res = await api('POST', '/api/moves/delete', { move: m[11], expect: { status: m[8], date: m[0], to: m[10] || m[4] } });
+            const mem = remember(null);
+            MV.splice(MV.indexOf(m), 1); if (m[2] >= 0) D.stats.matched--;
+            addLog(e0 || { rec: '', id: m[1] }, `Move deleted (${m[8] || 'no status'})`, [m[0], m[3]].filter(Boolean).join(' · '), m[4]);
+            prepare(D); $('#sheetX').click(); rerenderKeepingPlace();
+            toast(`Move deleted for <b>${esc(m[1] || 'no ID')}</b>.`, async () => {
+              const u = await api('POST', '/api/undo', { token: res.undo }); restore(mem);
+              if (u.ids?.[m[11]]) m[11] = u.ids[m[11]];
+            });
+          } catch (e) { err.innerHTML = esc(e.message); err.hidden = false; yes.disabled = false; yes.textContent = 'Yes, delete it'; }
+        };
+      };
+      if (arguments[0] === true) return;
       const showPicked = () => {
         $('#mvPicked').hidden = !picked; $('#mvSearch').hidden = !!picked;
         if (picked) $('#mvPicked').innerHTML = `<span class="id">${esc(picked.id)}</span><span class="mm">${esc([picked.mk, picked.md].filter(Boolean).join(' ') || picked.ty)}<small>Now at ${esc(picked.loc || 'no location')}</small></span><button type="button" class="mini" id="mvChange">Change</button>`;

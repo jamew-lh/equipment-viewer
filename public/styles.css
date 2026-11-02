@@ -237,3 +237,10 @@ td.act .mini{margin-left:0}
 .fg input,.fg select,.fg textarea{min-width:0;max-width:100%;display:block}
 .fg input[type=date]{-webkit-appearance:none;appearance:none;text-align:left}
 .fg input[type=date]::-webkit-date-and-time-value{text-align:left}
+
+/* delete a move: kept apart from the save buttons, and asks before deleting */
+.btn.danger{background:#fff;color:var(--down,#a5401b);border:1.5px solid currentColor}
+#mvDelYes.btn.danger{background:var(--down,#a5401b);color:#fff;border-color:transparent}
+.delzone{margin-top:6px;padding-top:14px;border-top:1px solid var(--line)}
+.delzone p{margin:0 0 10px;font-size:15px}
+.delzone .row{display:flex;gap:10px;flex-wrap:wrap}

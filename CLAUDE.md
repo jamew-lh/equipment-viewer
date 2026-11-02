@@ -31,6 +31,8 @@ something important changes. The README is the setup guide for people.
 - Sign-in: a viewer PIN or an office PIN plus a name, kept in a signed cookie `lhv`
   (roles v/p/o). Each edit writes a row to the **Change Log** table. Undo is
   available for 5 minutes.
+- Office can delete a move (Edit move → Delete this move, asks first). It doesn't
+  change Location; Undo re-creates it as a new Airtable record.
 - **TV screen** (NoviSign Embed widget, URL option): `/tv?key=TV_KEY`, built by
   `tvPage()` and `buildTv()` in `lib/tv.mjs`. The layout is 1920×1080, scaled to fit,
   in Eastern time from the server clock. It shows jobsites with equipment plus

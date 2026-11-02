@@ -296,3 +296,28 @@ test('TRACKING: new machines start ticked; the office can untick it, and undo ti
   assert.equal(rec(EQUIPMENT.table, m.id).fields[E.tracking], true);
   assert.equal((await data(o)).eq.find((x) => x.id === '336-05').tk, true);
 });
+
+test('a scheduled move can be deleted; Location is untouched; undo puts it back', async () => {
+  const { call, office, viewer, data, rec, byId, deps } = await setup();
+  const o = await office(); const m = byId('D6T-03');
+  const a = await call('/api/moves', { method: 'POST', cookie: o, body: { rec: m.id, expectLoc: '1201 Colllegeville', from: '1201 Colllegeville', to: 'Odessa', date: '2026-10-20', status: 'Scheduled', driver: 'Dan I', truck: '24T-02' } });
+  const id = a.body.id;
+  const before = { ...rec(MOVES.table, id).fields };
+  const v = await call('/api/moves/delete', { method: 'POST', cookie: await viewer(), body: { move: id } });
+  assert.equal(v.status, 403);
+  const stale = await call('/api/moves/delete', { method: 'POST', cookie: o, body: { move: id, expect: { date: '2026-10-21' } } });
+  assert.equal(stale.status, 409);
+  const r = await call('/api/moves/delete', { method: 'POST', cookie: o, body: { move: id, expect: { status: 'Scheduled', date: '2026-10-20', to: 'Odessa' } } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(rec(MOVES.table, id), undefined);
+  assert.equal(rec(EQUIPMENT.table, m.id).fields[E.location], '1201 Colllegeville');
+  assert.ok(deps.airtable.data[CHANGE_LOG.table].some((x) => x.fields[L.change] === 'Move deleted (Scheduled)'));
+  assert.equal((await data(await viewer())).mv.some((x) => x[11] === id), false);
+  const u = await call('/api/undo', { method: 'POST', cookie: o, body: { token: r.body.undo } });
+  const now = u.body.ids[id];
+  assert.ok(now);
+  assert.deepEqual(rec(MOVES.table, now).fields, before);
+  const back = (await data(await viewer())).mv.find((x) => x[11] === now);
+  assert.deepEqual(back.slice(0, 9), ['2026-10-20', 'D6T-03', back[2], '1201 Colllegeville', 'Odessa', 'Dan I', '24T-02', 'n/a', 'Scheduled']);
+  assert.ok(back[2] >= 0);
+});
