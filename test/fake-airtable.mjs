@@ -37,6 +37,7 @@ export function fakeAirtable({ failWith, writeFailWith } = {}) {
       }
       return structuredClone(rec);
     },
+    async updateMany(table, list) { w(); calls.push(['updateMany', table, list.length]); for (const { id, fields } of list) apply(find(table, id), fields); },
     async destroy(table, ids) { w(); calls.push(['delete', table, ids]); data[table] = data[table].filter((r) => !ids.includes(r.id)); },
     async upload(id, fieldId, { contentType, filename }) {
       w(); calls.push(['upload', id, filename]);

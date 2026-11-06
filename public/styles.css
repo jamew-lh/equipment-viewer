@@ -244,3 +244,20 @@ td.act .mini{margin-left:0}
 .delzone{margin-top:6px;padding-top:14px;border-top:1px solid var(--line)}
 .delzone p{margin:0 0 10px;font-size:15px}
 .delzone .row{display:flex;gap:10px;flex-wrap:wrap}
+
+/* Scheduled and needed: heading row with the Arrange order button, and the arrange list */
+.ohead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ohead h2{margin:0}
+.ordlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ord{display:grid;grid-template-columns:34px 26px 1fr auto;align-items:center;gap:8px;padding:8px 8px 8px 4px;border:1px solid var(--line);border-radius:8px;background:var(--panel);transition:background .3s}
+.ord .grip{font-size:24px;line-height:1;color:var(--muted);text-align:center;cursor:grab;touch-action:none;user-select:none;padding:8px 0}
+.ord .n{font:700 16px var(--f-mono);color:var(--brand);text-align:right}
+.ord .owhat{min-width:0;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.ord .owhat small{flex-basis:100%;color:var(--muted);font-size:13px}
+.ord .ud{display:flex;gap:4px}
+.ord .ud .mini{margin:0;padding:6px 10px;font-size:13px}
+.ord.dragging{background:var(--tan-soft);border-color:var(--tan);box-shadow:0 6px 18px rgba(0,0,0,.12);position:relative;z-index:2}
+.ord.dragging .grip{cursor:grabbing}
+.ord.moved{background:var(--tan-soft)}
+.ordbtns{display:flex;gap:10px;justify-content:flex-end}
+.ordbtns .btn{min-width:120px}

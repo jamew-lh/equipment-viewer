@@ -6,7 +6,7 @@ since 2019. It runs on Netlify, like the PM Service and Timecard apps.
 
 - **Viewers** sign in with the viewer PIN and can only look.
 - **The office** signs in with the office PIN and their name, and can add moves,
-  mark scheduled moves done, edit or delete moves, edit machine details, add photos and PDFs, and add
+  mark scheduled moves done, edit or delete moves, arrange the order of scheduled moves (the TV shows that order), edit machine details, add photos and PDFs, and add
   machines. Every change goes straight to Airtable and is recorded in the
   **Change Log** table with who made it.
 

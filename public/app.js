@@ -187,7 +187,8 @@ function renderMachine(e){
 function renderMoves(){
   const years = [...new Set(MV.map(m => (m[0]||'').slice(0,4)).filter(Boolean))].sort().reverse();
   const unmatched = MV.filter(m => m[2] < 0).length;
-  const open = MV.filter(m => m[8]==='Need' || m[8]==='Scheduled');
+  // In the office's order (it's the order the TV shows); moves without a number go after, by date.
+  const open = MV.filter(m => m[8]==='Need' || m[8]==='Scheduled').sort((a,b) => (a[13] ?? 1e9) - (b[13] ?? 1e9) || (a[0]||'').localeCompare(b[0]||''));
   main.innerHTML = `<div class="view stack">${banner}
     <div class="head-row"><div><h1>Moves</h1><p class="lede">All ${MV.length.toLocaleString()} moves since 2019, newest first.</p></div>
       ${isOffice() ? '<button type="button" class="btn small" id="addMoveTop">+ Add move</button>' : ''}</div>
@@ -201,7 +202,7 @@ function renderMoves(){
       <input type="search" id="mq" placeholder="Search machine, site or driver" value="${esc(state.mq)}" aria-label="Search moves">
       <select id="yr" aria-label="Year"><option value="">All years</option>${years.map(y=>`<option ${y===state.myear?'selected':''}>${y}</option>`).join('')}</select>
     </div>
-    ${open.length ? `<div class="panel"><h2>Scheduled and needed <small>${open.length}</small></h2><div class="tl">${open.map(m => moveLine(m, true)).join('')}</div></div>` : ''}
+    ${open.length ? `<div class="panel" id="openPanel"><div class="ohead"><h2>Scheduled and needed <small>${open.length} · in TV order</small></h2>${isOffice() && open.length > 1 ? '<button type="button" class="btn small secondary" id="arrange">Arrange order</button>' : ''}</div><div class="tl">${open.map(m => moveLine(m, true)).join('')}</div></div>` : ''}
     <label class="toggle"><input type="checkbox" id="um" ${state.mOnlyUnmatched?'checked':''}> Only moves that couldn't be matched to a machine (${unmatched})</label>
     <div id="mout" class="stack"></div></div>`;
   const draw = () => {
@@ -219,6 +220,7 @@ function renderMoves(){
     const more = $('#more'); if (more) more.onclick = () => { state.mShown += 100; draw(); };
   };
   if ($('#addMoveTop')) $('#addMoveTop').onclick = () => moveForm({});
+  if ($('#arrange')) $('#arrange').onclick = () => arrangeMoves($('#openPanel'), open);
   $('#mq').oninput = e => { state.mq = e.target.value; state.mShown = 100; draw(); };
   $('#yr').onchange = e => { state.myear = e.target.value; state.mShown = 100; draw(); };
   $('#um').onchange = e => { state.mOnlyUnmatched = e.target.checked; state.mShown = 100; draw(); };

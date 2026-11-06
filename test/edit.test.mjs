@@ -321,3 +321,35 @@ test('a scheduled move can be deleted; Location is untouched; undo puts it back'
   assert.deepEqual(back.slice(0, 9), ['2026-10-20', 'D6T-03', back[2], '1201 Colllegeville', 'Odessa', 'Dan I', '24T-02', 'n/a', 'Scheduled']);
   assert.ok(back[2] >= 0);
 });
+
+test('the office can put scheduled and needed moves in order; the TV follows it; undo puts it back', async () => {
+  const { call, office, viewer, data, rec, byId, deps } = await setup();
+  const o = await office();
+  const add = async (id, to, date) => (await call('/api/moves', { method: 'POST', cookie: o, body: { rec: byId(id).id, expectLoc: byId(id).fields[E.location], from: byId(id).fields[E.location], to, date, status: 'Scheduled' } })).body.id;
+  const a = await add('D6T-03', 'Odessa', '2026-10-20'), b = await add('D6T-02', 'Odessa', '2026-10-21');
+  const open = (await data(o)).mv.filter((m) => m[8] === 'Scheduled' || m[8] === 'Need').sort((x, y) => (x[0] || '').localeCompare(y[0] || '')).map((m) => m[11]);
+  const want = [b, ...open.filter((x) => x !== b)];
+  const v = await call('/api/moves/order', { method: 'POST', cookie: await viewer(), body: { ids: want } });
+  assert.equal(v.status, 403);
+  const r = await call('/api/moves/order', { method: 'POST', cookie: o, body: { ids: want } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(rec(MOVES.table, b).fields[MOVES.fields.order], 1);
+  assert.equal(rec(MOVES.table, a).fields[MOVES.fields.order], want.indexOf(a) + 1);
+  assert.ok(deps.airtable.data[CHANGE_LOG.table].some((x) => x.fields[L.change] === 'Scheduled moves reordered'));
+  // the TV shows them in that order
+  deps.env = env; const tv = await handle(new Request('https://x.test/api/tv?key=k'), { ...deps, env: { ...env, TV_KEY: 'k' } });
+  const t = await tv.json();
+  assert.equal(t.open[0].id, 'D6T-02');
+  assert.equal(t.open.length, want.length);
+  // the saved copy has it for everyone
+  assert.equal((await data(await viewer())).mv.find((m) => m[11] === b)[13], 1);
+  // saving the same order again changes nothing
+  const same = await call('/api/moves/order', { method: 'POST', cookie: o, body: { ids: want } });
+  assert.equal(same.body.undo, null);
+  await call('/api/undo', { method: 'POST', cookie: o, body: { token: r.body.undo } });
+  assert.equal(rec(MOVES.table, b).fields[MOVES.fields.order] ?? null, null);
+  assert.equal((await data(await viewer())).mv.find((m) => m[11] === b)[13], null);
+  // a list with a completed move in it is refused
+  const done = (await data(o)).mv.find((m) => m[8] === 'Complete')[11];
+  assert.equal((await call('/api/moves/order', { method: 'POST', cookie: o, body: { ids: [done] } })).status, 409);
+});

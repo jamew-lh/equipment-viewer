@@ -99,7 +99,7 @@ function changePanel(e){
 
 function photoTile(e, f){
   const src = f[3] || (window.SAMPLE ? '' : fileUrl(e, f));
-  if (!src) return `<div class="ph"><span>PHOTO</span><small>${esc(f[1])}</small></div>`;
+  if (!src) return `<div class="ohead"><span>PHOTO</span><small>${esc(f[1])}</small></div>`;
   return `<button type="button" data-photo="${src}" aria-label="${esc(f[1])}"><img src="${f[3] ? src : src + '&s=thumb'}" alt="${esc(f[1])}" loading="lazy"></button>`;
 }
 
@@ -449,3 +449,63 @@ function showName(msg){
 $('#fab').onclick = () => moveForm({});
 
 load();
+
+
+// ---------- arrange scheduled and needed moves (the TV shows them in this order) ----------
+// Drag the ≡ handle, or use the arrows. Nothing is saved until "Save order".
+function arrangeMoves(panel, open){
+  const row = (m) => {
+    const eq = m[2] >= 0 ? EQ[m[2]].id : (m[1] || '?');
+    return `<li class="ord" data-k="${MV.indexOf(m)}"><span class="grip" aria-label="Drag to move">≡</span><span class="n"></span>
+      <span class="owhat"><b class="mono">${esc(eq)}</b> <span>${esc(m[3]||'?')} → ${esc(m[4]||'?')}</span>
+      <small>${fmtS(m[0])} · ${esc(m[8])}${m[5] ? ' · ' + esc(m[5]) : ''}</small></span>
+      <span class="ud"><button type="button" class="mini ghost" data-up aria-label="Move up">▲</button><button type="button" class="mini ghost" data-down aria-label="Move down">▼</button></span></li>`;
+  };
+  panel.innerHTML = `<div class="ohead"><h2>Arrange order <small>top = first on the TV</small></h2></div>
+    <p class="sub" style="margin:0">Drag a move by its ≡ handle, or use the arrows. Then tap Save order.</p>
+    <ol class="ordlist" id="ordList">${open.map(row).join('')}</ol>
+    <div class="msg warn" id="ordErr" role="alert" hidden></div>
+    <div class="ordbtns"><button type="button" class="btn secondary" id="ordCancel">Cancel</button><button type="button" class="btn" id="ordSave">Save order</button></div>`;
+  const list = $('#ordList');
+  const renumber = () => [...list.children].forEach((li, i) => { li.querySelector('.n').textContent = i + 1; });
+  renumber();
+  list.addEventListener('click', (ev) => {
+    const li = ev.target.closest('.ord'); if (!li) return;
+    if (ev.target.closest('[data-up]') && li.previousElementSibling) list.insertBefore(li, li.previousElementSibling);
+    else if (ev.target.closest('[data-down]') && li.nextElementSibling) list.insertBefore(li.nextElementSibling, li);
+    else return;
+    renumber(); li.classList.add('moved'); setTimeout(() => li.classList.remove('moved'), 400);
+  });
+  list.addEventListener('pointerdown', (ev) => {
+    const grip = ev.target.closest('.grip'); if (!grip) return;
+    ev.preventDefault();
+    const li = grip.closest('.ord'); li.classList.add('dragging'); grip.setPointerCapture(ev.pointerId);
+    let scroll = 0; const tick = setInterval(() => { if (scroll) window.scrollBy(0, scroll); }, 16);
+    const move = (e) => {
+      const y = e.clientY;
+      scroll = y < 70 ? -12 : y > window.innerHeight - 70 ? 12 : 0;
+      const before = [...list.children].find((r) => r !== li && y < r.getBoundingClientRect().top + r.offsetHeight / 2);
+      if (before !== li.nextElementSibling) { list.insertBefore(li, before || null); renumber(); }
+    };
+    const up = () => { clearInterval(tick); li.classList.remove('dragging'); grip.removeEventListener('pointermove', move); };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up, { once: true }); grip.addEventListener('pointercancel', up, { once: true });
+  });
+  $('#ordCancel').onclick = () => rerenderKeepingPlace();
+  $('#ordSave').onclick = async () => {
+    const btn = $('#ordSave'), err = $('#ordErr'); btn.disabled = true; btn.textContent = 'Saving…'; err.hidden = true;
+    const rows = [...list.children].map((li) => MV[+li.dataset.k]);
+    try {
+      const res = await api('POST', '/api/moves/order', { ids: rows.map((m) => m[11]) });
+      const before = rows.map((m) => [m, m[13] ?? null]);
+      rows.forEach((m, i) => { m[13] = i + 1; });
+      if (res.undo) addLog({ rec: '', id: '' }, 'Scheduled moves reordered', '', rows.slice(0, 12).map((m, i) => `${i + 1}. ${m[2] >= 0 ? EQ[m[2]].id : m[1]}`).join(', '));
+      rerenderKeepingPlace();
+      toast(res.undo ? 'Order saved. The TV shows it within a minute.' : 'No change to the order.', res.undo ? async () => {
+        await api('POST', '/api/undo', { token: res.undo });
+        for (const [m, n] of before) m[13] = n;
+        D.log.shift();
+      } : null);
+    } catch (e) { err.innerHTML = esc(e.message); err.hidden = false; btn.disabled = false; btn.textContent = 'Save order'; }
+  };
+}

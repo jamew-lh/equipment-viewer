@@ -33,6 +33,11 @@ something important changes. The README is the setup guide for people.
   available for 5 minutes.
 - Office can delete a move (Edit move → Delete this move, asks first). It doesn't
   change Location; Undo re-creates it as a new Airtable record.
+- **Move Order** (number field on Moves, `MOVES.fields.order`, snapshot move row index 13):
+  the office sets it with Arrange order on the Moves screen (drag the handle or use the
+  arrows, then Save order). Scheduled and needed moves are listed in that order in the app
+  and on the TV; moves with no number go after, by date. Save writes only the numbers
+  that changed (10 per call) and can be undone.
 - **TV screen** (NoviSign Embed widget, URL option): `/tv?key=TV_KEY`, built by
   `tvPage()` and `buildTv()` in `lib/tv.mjs`. The layout is 1920×1080, scaled to fit,
   in Eastern time from the server clock. It shows jobsites with equipment plus
