@@ -1,18 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#004745"/>
-  <g transform="translate(262 262) scale(1.12) translate(-262 -258)">
-    <!-- ground -->
-    <rect x="104" y="392" width="300" height="11" rx="5.5" fill="#D4A070" opacity=".5"/>
-    <!-- push arm -->
-    <path d="M246 332 L384 338" stroke="#D4A070" stroke-width="32" stroke-linecap="round"/>
-    <circle cx="384" cy="338" r="11" fill="#004745"/>
-    <!-- tilt cylinder: rod into the blade, barrel down to the arm -->
-    <path d="M244 172 L300 236" stroke="#D4A070" stroke-width="10" stroke-linecap="round"/>
-    <path d="M292 226 L360 306" stroke="#D4A070" stroke-width="24" stroke-linecap="round"/>
-    <circle cx="360" cy="306" r="6" fill="#004745"/>
-    <!-- blade: curved moldboard, lip curling forward, cutting edge at the bottom -->
-    <path d="M136 386 L238 386 L258 362 L246 140 Q240 116 214 114 L148 118 Q134 120 136 132 L138 142 L156 142 C222 166 226 300 156 364 Z" fill="#D4A070"/>
-    <!-- cutting edge -->
-    <path d="M136 386 L156 364 L172 366 L158 386 Z" fill="#9c7650"/>
+  <rect width="512" height="512" rx="96" fill="#0B4635"/>
+  <g transform="translate(256 262) scale(1.08) translate(-260 -250)">
+    <path d="M246 332 L384 338" stroke="#FFFFFF" stroke-width="32" stroke-linecap="round"/>
+    <path d="M244 172 L300 236" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+    <path d="M292 226 L360 306" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round"/>
+    <path d="M136 386 L238 386 L258 362 L246 140 Q240 116 214 114 L148 118 Q134 120 136 132 L138 142 L156 142 C222 166 226 300 156 364 Z" fill="#D69C61"/>
   </g>
 </svg>

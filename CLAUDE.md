@@ -13,6 +13,9 @@ something important changes. The README is the setup guide for people.
   Pushing to `main` deploys.
 - Owner: James W (jamesw@lyonshohl.com). The look matches the PM Service and
   Timecard apps: green `#004745`, tan `#D4A070`, white background.
+- App icon matches the Timecard icon's style: rounded square (rx 96 of 512) in
+  `#0B4635`, tan `#D69C61` dozer blade with white push arm. Source is `public/icon.svg`
+  (same as `favicon.svg`); the PNGs are rendered from it. Bump `?v=` in index.html on change.
 
 ## How it works
 - `netlify/functions/api.mjs` serves `/api/*` and `/tv`. All routes are in `lib/app.mjs`.
