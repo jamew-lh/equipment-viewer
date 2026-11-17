@@ -105,8 +105,8 @@ function moveLine(m, showEq){
   const eq = m[2] >= 0 && !EQ[m[2]].hidden ? EQ[m[2]] : null;
   const who = showEq ? (eq ? `<button class="lnk mono" data-eq="${eq.i}" style="appearance:none;border:none;background:none;padding:0;font:600 14px var(--f-mono);color:var(--ink);text-decoration:underline;cursor:pointer">${esc(eq.id)}</button> ` : `<span class="mono">${esc(m[1]||'?')}</span> `) : '';
   const meta = [m[5]&&`Driver ${esc(m[5])}`, m[6]&&`Truck ${esc(m[6])}`, m[7]&&m[7]!=='n/a'&&`Permit ${esc(m[7])}`, m[8]&&m[8]!=='Complete'&&`<b class="open">${esc(m[8])}</b>`, m[12]&&`Entered by ${esc(m[12])}`].filter(Boolean);
-  const k = isOffice() && m[11] ? MV.indexOf(m) : -1;
-  const done = k < 0 ? '' : `${isOpen(m) ? `<button type="button" class="mini" data-done="${k}">Mark done</button>` : ''}<button type="button" class="mini ghost" data-edit-move="${k}">Edit</button>`;
+  const k = m[11] ? MV.indexOf(m) : -1;
+  const done = k < 0 ? '' : `${canMarkDone(m) ? `<button type="button" class="mini" data-done="${k}">Mark done</button>` : ''}${isOffice() ? `<button type="button" class="mini ghost" data-edit-move="${k}">Edit</button>` : ''}`;
   return `<div class="mv"><span class="d">${fmtS(m[0])}</span>
     <span class="ft">${who}<span title="${esc(m[9]||'')}">${esc(m[3]||'?')}</span><span class="ar">→</span><span title="${esc(m[10]||'')}">${esc(m[4]||'?')}</span></span>
     ${meta.length||done?`<span class="meta">${meta.map(x=>`<span>${x}</span>`).join('')}${done}</span>`:''}</div>`;
@@ -243,28 +243,26 @@ const ago = t => { const m = Math.round((Date.now() - t) / 60e3); return m < 1 ?
 function showUpdated(){
   const u = $('#updated');
   if (!D) { u.innerHTML = ''; return; }
-  u.innerHTML = `<span id="upd">Updated ${ago(D.asOf)}</span>${isOffice() ? `<span class="who">Office · ${esc(D.office.name)}</span>` : ''}<button type="button" id="refresh">Refresh</button><button type="button" id="signout">Sign out</button>`;
+  const level = { o: 'Full edit', d: 'Driver', v: 'View only' }[D.me?.role] || '';
+  u.innerHTML = `<span id="upd">Updated ${ago(D.asOf)}</span>${D.me ? `<span class="who">${level} · ${esc(D.me.name)}</span>` : ''}<button type="button" id="refresh">Refresh</button><button type="button" id="signout">Sign out</button>`;
   $('#refresh').onclick = refreshNow;
-  $('#signout').onclick = async () => { await fetch('/api/logout', { method: 'POST' }); D = null; $('#fab').hidden = true; showUpdated(); showPin(); };
+  $('#signout').onclick = async () => { await fetch('/api/logout', { method: 'POST' }); D = null; $('#fab').hidden = true; showUpdated(); showSignin('out'); };
 }
 setInterval(() => { if (D && $('#upd')) $('#upd').textContent = `Updated ${ago(D.asOf)}`; }, 60e3);
 
-function showPin(msg){
+// Sign-in happens in the Lyons & Hohl App (last name + timecard PIN); its Equipment Tracker button signs people in here.
+const LH_APP = 'https://lyonshohl.netlify.app/';
+function showSignin(why){
   $('#tabbar').hidden = true;
-  main.innerHTML = `<form class="pin" id="pinForm">
-    <h1>Sign in</h1><p class="lede">Enter the equipment viewer PIN, or the office PIN to make changes.</p>
-    <input type="password" id="pin" inputmode="text" autocomplete="current-password" autocapitalize="off" spellcheck="false" aria-label="PIN" placeholder="PIN">
-    <div class="msg warn" id="pinErr" role="alert" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
-    <button class="btn" type="submit" id="pinGo">Sign in</button></form>`;
-  $('#pin').focus();
-  $('#pinForm').onsubmit = async ev => {
-    ev.preventDefault();
-    const go = $('#pinGo'); go.disabled = true; go.textContent = 'Checking…';
-    const r = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pin: $('#pin').value }) }).catch(() => null);
-    if (r && r.ok) { const b = await r.json().catch(() => ({})); return b.needName ? showName() : load(); }
-    const err = r ? (await r.json().catch(() => ({}))).error : 'No connection. Check your signal and try again.';
-    showPin(err || 'Sign-in failed. Try again.');
-  };
+  if (why !== 'out' && new URLSearchParams(location.search).get('signin') === 'expired') why = 'expired';
+  if (location.search) history.replaceState(null, '', location.pathname);
+  const lede = why === 'out' ? "You're signed out." : why === 'expired' ? "That sign-in link has expired or isn't valid." : '';
+  main.innerHTML = `<div class="pin signin">
+    <h1>Equipment Tracker</h1>
+    ${lede ? `<p class="lede"><b>${lede}</b></p>` : ''}
+    <p class="lede">Open it from the <b>Lyons &amp; Hohl App</b>: sign in there with your last name and timecard PIN, then tap <b>Equipment Tracker</b>.</p>
+    <a class="btn" href="${LH_APP}">Open the Lyons &amp; Hohl App</a>
+    <p class="note">Don't see the button? Ask the office to give you access.</p></div>`;
 }
 
 function showMessage(html, spin){ $('#tabbar').hidden = true; main.innerHTML = `<div class="msg ${spin ? 'info' : 'warn'}">${spin ? '<span class="spinner"></span>' : ''}<span>${html}</span></div>`; }
@@ -282,7 +280,7 @@ async function fetchData(){
 let waitedSince = 0;
 async function load(){
   const res = await fetchData();
-  if (res.signin) return showPin();
+  if (res.signin) return showSignin();
   if (res.error && !res.waiting) return showMessage(esc(res.error));
   if (res.waiting) {
     waitedSince ||= Date.now();

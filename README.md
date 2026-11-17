@@ -4,11 +4,22 @@ A web app for the **LH Equipment** Airtable base: what's on each jobsite, the
 whole fleet by type, full details and photos for every machine, and every move
 since 2019. It runs on Netlify, like the PM Service and Timecard apps.
 
-- **Viewers** sign in with the viewer PIN and can only look.
-- **The office** signs in with the office PIN and their name, and can add moves,
-  mark scheduled moves done, edit or delete moves, arrange the order of scheduled moves (the TV shows that order), edit machine details, add photos and PDFs, and add
-  machines. Every change goes straight to Airtable and is recorded in the
-  **Change Log** table with who made it.
+**Who gets in:** people open it from the **Lyons & Hohl App** (sign in there with
+last name + timecard PIN, then tap **Equipment Tracker**). There is no separate PIN.
+The **Equipment Tracker** field in the Employees base → Employee List decides who
+sees the button and what they can do:
+
+- **View Only**: can look at everything.
+- **Driver User**: can look, and **Mark done** on scheduled / needed moves where they
+  are the driver (their Schedule Name, e.g. "Jared E.", matches the move's Driver).
+- **Full Edit**: can add moves, mark moves done, edit or delete moves, arrange the
+  order of scheduled moves (the TV shows that order), edit machine details, add
+  photos and PDFs, and add machines.
+
+Every change goes straight to Airtable and is recorded in the **Change Log** table
+with the person's name. A sign-in lasts 12 hours; after that, the next tap in the
+Lyons & Hohl App signs them in again with whatever access they have then. To give or
+take away access, change that person's Equipment Tracker field in Airtable.
 
 ---
 
@@ -45,15 +56,13 @@ In the new site, go to **Site configuration → Environment variables → Add a 
 |---|---|
 | `AIRTABLE_TOKEN` | the token from step 1 |
 | `SESSION_SECRET` | any long random text, at least 24 characters (use a password generator) |
-| `VIEWER_PIN` | the PIN people will type to look around |
-| `OFFICE_PIN` | a different PIN, for the office only. Make it longer than the viewer PIN |
+| `LH_HANDOFF_SECRET` | long random text (40+ letters and numbers). **The same value as on the Lyons & Hohl App site.** It lets that app's Equipment Tracker button sign people in here |
 
 Then go to **Deploys → Trigger deploy → Deploy site** so the app picks them up.
 
-To **change a PIN** later, edit `VIEWER_PIN` or `OFFICE_PIN` here and redeploy.
-People using that PIN are signed out and enter the new one once. Otherwise
-people stay signed in on their phone for 60 days. Without `OFFICE_PIN`, the app
-is view-only for everyone.
+Changing `SESSION_SECRET` (then redeploying) signs everyone out; they get back in
+from the Lyons & Hohl App. If `LH_HANDOFF_SECRET` is missing or doesn't match the
+Lyons & Hohl App's, the button lands on "That sign-in link has expired or isn't valid".
 
 ## 4. Your own web address (optional)
 
@@ -64,7 +73,7 @@ set host `equipment` and data to the Netlify address (for example `your-site.net
 
 ## 5. Check it
 
-1. Open the site and enter the PIN.
+1. Open the Lyons & Hohl App, sign in, and tap **Equipment Tracker**.
 2. The very first time, it says it's getting the equipment list ready. That
    takes about 30 seconds while it reads all the moves from Airtable.
 3. Open **Jobsites**, pick a site, then a machine. Check its photos open and its
@@ -179,4 +188,4 @@ has no TRACKING box and still shows under "Include sold, scrapped and old".
 - One dependency, `@netlify/blobs`, for the saved copy.
 - `npm test` runs the API tests against a saved copy of the real records in
   `test/fixtures`. `npm run dev` runs a local preview at http://localhost:8890
-  (PIN `2468` to look, `1357` for the office). Saves go to an in-memory copy.
+  (open `/dev-signin?as=o`, `?as=d` or `?as=v` to sign in as Full Edit, Driver User or View Only). Saves go to an in-memory copy.

@@ -7,8 +7,9 @@ import { makeSiteNamer } from '../lib/sites.mjs';
 import { idKey } from '../lib/build.mjs';
 import { makeAirtable } from '../lib/airtable.mjs';
 import { fakeAirtable } from './fake-airtable.mjs';
+import { makePass } from './pass.mjs';
 
-const env = { AIRTABLE_TOKEN: 'patX', SESSION_SECRET: 's'.repeat(32), VIEWER_PIN: '2468' };
+const env = { AIRTABLE_TOKEN: 'patX', SESSION_SECRET: 's'.repeat(32), LH_HANDOFF_SECRET: 'h'.repeat(40) };
 
 function setup(over = {}) {
   let t = Date.parse('2026-10-14T13:00:00Z');
@@ -20,41 +21,61 @@ function setup(over = {}) {
   const call = (path, { method = 'GET', body, cookie } = {}) => handle(new Request(`https://x.test${path}`, {
     method, body: body && JSON.stringify(body), headers: { ...(cookie ? { cookie } : {}), 'content-type': 'application/json' },
   }), deps);
-  const signIn = async () => (await call('/api/login', { method: 'POST', body: { pin: '2468' } })).headers.get('set-cookie').split(';')[0];
-  return { deps, call, signIn, advance: (ms) => { t += ms; } };
+  const sso = (who, at = t) => call(`/api/sso?t=${encodeURIComponent(makePass(deps.env.LH_HANDOFF_SECRET, who, at))}`);
+  const signIn = async (who = { role: 'v', name: 'Dalton M.' }) => (await sso(who)).headers.get('set-cookie').split(';')[0];
+  return { deps, call, signIn, sso, advance: (ms) => { t += ms; }, now: () => t };
 }
 
-test('wrong PIN is refused, right PIN signs in for 60 days', async () => {
-  const { call } = setup();
-  assert.equal((await call('/api/login', { method: 'POST', body: { pin: '1111' } })).status, 401);
-  const ok = await call('/api/login', { method: 'POST', body: { pin: ' 2468 ' } });
-  assert.equal(ok.status, 200);
-  assert.match(ok.headers.get('set-cookie'), /HttpOnly; Secure/);
-  assert.match(ok.headers.get('set-cookie'), /Max-Age=5184000/);
+test('a pass from the Lyons & Hohl App signs in for 12 hours and drops the pass from the address', async () => {
+  const { sso } = setup();
+  const ok = await sso({ role: 'd', name: 'Jared E.', driver: 'Jared E.' });
+  assert.equal(ok.status, 302);
+  assert.equal(ok.headers.get('location'), '/');
+  assert.match(ok.headers.get('set-cookie'), /^lhe=.*HttpOnly; Secure/);
+  assert.match(ok.headers.get('set-cookie'), /Max-Age=43200/);
 });
 
-test('data needs sign-in, and a changed PIN signs everyone out', async () => {
-  const { call, signIn, deps } = setup();
-  assert.equal((await call('/api/data')).status, 401);
+test('expired, tampered or wrong-secret passes are refused', async () => {
+  const { call, sso, now, deps } = setup();
+  const bad = (r) => { assert.equal(r.status, 302); assert.equal(r.headers.get('location'), '/?signin=expired'); assert.equal(r.headers.get('set-cookie'), null); };
+  bad(await sso({ role: 'o' }, now() - 121e3));                         // more than 2 minutes old
+  const t = makePass(deps.env.LH_HANDOFF_SECRET, { role: 'v' }, now());
+  const [p, sig] = t.split('.');
+  const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(p, 'base64url')), r: 'o' })).toString('base64url');
+  bad(await call(`/api/sso?t=${forged}.${sig}`));                       // changed to Full Edit
+  bad(await call(`/api/sso?t=${makePass('x'.repeat(40), { role: 'o' }, now())}`)); // signed with another secret
+  bad(await sso({ role: 'admin' }));                                    // not a level
+  bad(await call('/api/sso'));
+  deps.env = { ...env, LH_HANDOFF_SECRET: '' };                         // not set up in Netlify
+  bad(await sso({ role: 'o' }));
+});
+
+test('data needs sign-in; sign-in lasts 12 hours; a new SESSION_SECRET signs everyone out', async () => {
+  const { call, signIn, deps, advance } = setup();
+  const r = await call('/api/data');
+  assert.equal(r.status, 401);
+  assert.match((await r.json()).error, /Lyons & Hohl App/);
   const cookie = await signIn();
   assert.notEqual((await call('/api/data', { cookie })).status, 401);
-  deps.env = { ...env, VIEWER_PIN: '9999' };
+  advance(11 * 3600e3);
+  assert.notEqual((await call('/api/data', { cookie })).status, 401);
+  advance(2 * 3600e3);
   assert.equal((await call('/api/data', { cookie })).status, 401);
+  const again = await signIn();
+  deps.env = { ...env, SESSION_SECRET: 'n'.repeat(32) };
+  assert.equal((await call('/api/data', { cookie: again })).status, 401);
 });
 
-test('repeated wrong PINs lock out for 10 minutes', async () => {
-  const { call, advance } = setup();
-  for (let i = 0; i < 8; i++) await call('/api/login', { method: 'POST', body: { pin: '0000' } });
-  assert.equal((await call('/api/login', { method: 'POST', body: { pin: '2468' } })).status, 429);
-  advance(11 * 60e3);
-  assert.equal((await call('/api/login', { method: 'POST', body: { pin: '2468' } })).status, 200);
+test('the old shared-PIN sign-in is gone', async () => {
+  const { call } = setup();
+  assert.equal((await call('/api/login', { method: 'POST', body: { pin: '2468' } })).status, 401);
 });
 
 test('missing setting gives a clear message', async () => {
-  const { call } = setup({ env: { ...env, VIEWER_PIN: '' } });
+  const { call } = setup({ env: { ...env, SESSION_SECRET: '' } });
   const r = await call('/api/data');
   assert.equal(r.status, 500);
-  assert.match((await r.json()).error, /VIEWER_PIN/);
+  assert.match((await r.json()).error, /SESSION_SECRET/);
 });
 
 test('first load starts one refresh and says so; then data arrives', async () => {
