@@ -1,10 +1,16 @@
 
-// ================= office editing =================
-// Office users (signed in with the office PIN) can add moves, mark scheduled
-// moves done, edit machine details, add photos and add machines.
+// ================= editing =================
+// Access comes from the Employee List's "Equipment Tracker" field, via the Lyons & Hohl App:
+//   Full Edit (D.office set): add moves, mark done, edit and delete moves, edit machines, photos, add machines.
+//   Driver User: mark done only the scheduled / needed moves with their name as the driver.
+//   View Only: look only.
 // Every save goes to Airtable through /api, then updates this page right away.
 
 const isOffice = () => !!(D && D.office);
+const myName = () => (D && D.me && D.me.name) || '';
+const sameDriver = (a, b) => { const k = s => String(s || '').toLowerCase().replace(/[^a-z]/g, ''); return !!k(a) && k(a) === k(b); };
+// Can this person mark this move done? Full Edit: any open move. Driver User: open moves with their name as driver.
+const canMarkDone = m => !!m[11] && isOpen(m) && (isOffice() || (D?.me?.role === 'd' && sameDriver(m[5], D.me.driver)));
 const isOpen = m => m[8] === 'Scheduled' || m[8] === 'Need';
 const localDate = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; };
 const idKey = s => String(s || '').replace(/\(.*?\)/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -85,7 +91,7 @@ function restore(r){
   D.mv.length = 0; D.mv.push(...r.mv); D.log.length = r.log; D.stats.matched = r.matched; prepare(D);
 }
 
-function addLog(e, field, from, to){ D.log.unshift({ at: Date.now(), by: D.office.name, rec: e.rec, id: e.id, field, from: from || '', to: to || '' }); }
+function addLog(e, field, from, to){ D.log.unshift({ at: Date.now(), by: myName(), rec: e.rec, id: e.id, field, from: from || '', to: to || '' }); }
 function insertMove(m){ let i = MV.findIndex(x => (x[0]||'') <= m[0]); if (i < 0) i = MV.length; MV.splice(i, 0, m); if (m[2] >= 0) D.stats.matched++; }
 
 function changePanel(e){
@@ -163,7 +169,7 @@ function moveForm({ eq = null }){
       if (!v.date) fail('Enter the date of the move.');
       const res = await api('POST', '/api/moves', { rec: picked.rec, id: picked.id, expectLoc: picked.loc, ...v });
       const mem = remember(picked);
-      insertMove([v.date, picked.id, picked.i, v.from, v.to, v.driver, v.truck, v.permit || 'n/a', st, '', '', res.id, D.office.name]);
+      insertMove([v.date, picked.id, picked.i, v.from, v.to, v.driver, v.truck, v.permit || 'n/a', st, '', '', res.id, myName()]);
       addLog(picked, st === 'Complete' ? 'Move' : `Move (${st})`, v.from, v.to);
       if (st === 'Complete' && picked.loc !== v.to) { addLog(picked, 'Location', picked.loc, v.to); picked.loc = v.to; }
       prepare(D); rerenderKeepingPlace();
@@ -389,7 +395,7 @@ function editMachine(e){
         addLog(e, label, k === 'nt' ? '' : show(e[k]), k === 'nt' ? (next.nt ? 'Notes edited' : '') : show(next[k]));
         e[k] = next[k];
       }
-      if (logMove) { insertMove([localDate(), e.id, e.i, before.loc, next.loc, '', '', 'n/a', 'Complete', '', '', res.moveId, D.office.name]); addLog(e, 'Move', before.loc, next.loc); }
+      if (logMove) { insertMove([localDate(), e.id, e.i, before.loc, next.loc, '', '', 'n/a', 'Complete', '', '', res.moveId, myName()]); addLog(e, 'Move', before.loc, next.loc); }
       prepare(D);
       const untracked = before.tk === true && !e.tk;
       if (untracked) goBack(); else rerenderKeepingPlace();
@@ -429,22 +435,6 @@ async function addFiles(e, files){
 }
 
 // ---------- office sign-in: who is making changes ----------
-function showName(msg){
-  $('#tabbar').hidden = true;
-  let last = ''; try { last = localStorage.getItem('lhv-office-name') || ''; } catch {}
-  main.innerHTML = `<form class="pin" id="nameForm">
-    <h1>Office sign-in</h1><p class="lede">Your name goes on every move and change you make.</p>
-    <input type="text" id="offName" autocomplete="name" placeholder="Your name, e.g. James W" value="${esc(last)}" style="letter-spacing:0;font:600 20px var(--f-body)">
-    <div class="msg warn" id="pinErr" role="alert" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
-    <button class="btn" type="submit">Continue</button></form>`;
-  $('#offName').focus();
-  $('#nameForm').onsubmit = async ev => {
-    ev.preventDefault();
-    const name = $('#offName').value.trim(); if (name.length < 2) return showName('Enter your name.');
-    try { localStorage.setItem('lhv-office-name', name); } catch {}
-    try { await api('POST', '/api/login/name', { name }); load(); } catch (e) { showName(e.message); }
-  };
-}
 
 $('#fab').onclick = () => moveForm({});
 

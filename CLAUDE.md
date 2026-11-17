@@ -31,9 +31,18 @@ something important changes. The README is the setup guide for people.
   scheduled syncs, the TV doesn't trigger syncs or poll, and the TV reloads at 4 AM.
   The reason is that the Airtable Team plan allows 100k calls a month per workspace,
   and one sync costs about 56 calls (Moves is about 50 pages).
-- Sign-in: a viewer PIN or an office PIN plus a name, kept in a signed cookie `lhv`
-  (roles v/p/o). Each edit writes a row to the **Change Log** table. Undo is
-  available for 5 minutes.
+- **Sign-in comes from the Lyons & Hohl App** (repo `jamew-lh/lh-app`, lyonshohl.netlify.app). People sign in
+  there with last name + Timecard Pin. Its **Equipment Tracker** button (`/api/go/equipment` there,
+  `lib/equipment-pass.mjs`) redirects here to `/api/sso?t=<pass>`: base64url JSON `{i: employee record id,
+  n: name, r: v|d|o, k: driver name, e: expiry}` + `.` + HMAC-SHA256(`LH_HANDOFF_SECRET`, `lh-equip.` + payload).
+  Good for 2 minutes. `lib/auth.mjs` checks it and sets cookie `lhe` for `SESSION_HOURS` (12).
+  No shared PINs any more (removed Nov 2026). Direct visitors see "Open it from the Lyons & Hohl App".
+- **Levels** come from the Employee List's **Equipment Tracker** single select (Employees base `appVAkO25s9Jv6flF`,
+  field `fldfh6jNOIXm56BBt`): View Only = `v` (look only), Driver User = `d` (Mark done only on open moves whose
+  Driver matches their Schedule Name, letters only: "Jared E." = "Jared E"; undo only their own), Full Edit = `o`
+  (everything; `D.office` is set). Name shown/logged = Schedule Name, else "First Last". Decided by James Nov 17 2026:
+  drivers mark only their own moves; only the field decides (no position rule).
+- Each edit writes a row to the **Change Log** table with the person's name. Undo is available for 5 minutes.
 - Office can delete a move (Edit move → Delete this move, asks first). It doesn't
   change Location; Undo re-creates it as a new Airtable record.
 - **Move Order** (number field on Moves, `MOVES.fields.order`, snapshot move row index 13):
@@ -59,14 +68,14 @@ something important changes. The README is the setup guide for people.
 - Ignore the Category column.
 
 ## Netlify environment variables (values live only in Netlify, never in code or chat)
-`AIRTABLE_TOKEN`, `SESSION_SECRET`, `VIEWER_PIN`, `OFFICE_PIN`, `TV_KEY`.
+`AIRTABLE_TOKEN`, `SESSION_SECRET`, `LH_HANDOFF_SECRET` (same value on the lh-app site), `TV_KEY`.
 `netlify.toml` excludes the PINs and `test/**` from the secrets scan.
 
 ## Working on it
 - `npm test` runs the tests against a fake Airtable built from `test/fixtures/airtable.json`.
   Run them before every push.
-- `PORT=8791 npm run dev` starts a local preview. The test PINs are 2468 (viewer) and
-  1357 (office), and the TV key is `tv-preview-key`. Check UI changes with Playwright
+- `PORT=8791 npm run dev` starts a local preview. Sign in with `/dev-signin?as=o` (Full Edit), `?as=d`
+  (Driver User "Jared E.") or `?as=v` (View Only); the TV key is `tv-preview-key`. Check UI changes with Playwright
   screenshots at 1920×1080 for the TV and at phone width for the app.
 - Stop a dev server with `kill $(lsof -t -i:PORT)`, not `pkill -f`.
 - `[hidden]{display:none!important}` is needed because some elements set `display:flex`.

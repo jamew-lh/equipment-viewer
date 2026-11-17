@@ -9,8 +9,7 @@ export default async (req, context) => {
   const env = {
     AIRTABLE_TOKEN: Netlify.env.get('AIRTABLE_TOKEN'),
     SESSION_SECRET: Netlify.env.get('SESSION_SECRET'),
-    VIEWER_PIN: Netlify.env.get('VIEWER_PIN'),
-    OFFICE_PIN: Netlify.env.get('OFFICE_PIN'),
+    LH_HANDOFF_SECRET: Netlify.env.get('LH_HANDOFF_SECRET'), // same value as on the Lyons & Hohl App site
     TV_KEY: Netlify.env.get('TV_KEY'),
   };
   return handle(req, {

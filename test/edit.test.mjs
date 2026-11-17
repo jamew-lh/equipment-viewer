@@ -5,8 +5,9 @@ import { syncNow } from '../lib/sync.mjs';
 import { memoryStore } from '../lib/store.mjs';
 import { fakeAirtable } from './fake-airtable.mjs';
 import { EQUIPMENT, MOVES, CHANGE_LOG } from '../lib/config.mjs';
+import { makePass } from './pass.mjs';
 
-const env = { AIRTABLE_TOKEN: 'patX', SESSION_SECRET: 's'.repeat(32), VIEWER_PIN: '2468', OFFICE_PIN: 'OFFICE99' };
+const env = { AIRTABLE_TOKEN: 'patX', SESSION_SECRET: 's'.repeat(32), LH_HANDOFF_SECRET: 'h'.repeat(40) };
 const E = EQUIPMENT.fields, M = MOVES.fields, L = CHANGE_LOG.fields;
 
 async function setup(over = {}) {
@@ -17,24 +18,22 @@ async function setup(over = {}) {
     const r = await handle(new Request(`https://x.test${path}`, { method, body: body && JSON.stringify(body), headers: { ...(cookie ? { cookie } : {}), 'content-type': 'application/json' } }), deps);
     return { status: r.status, body: await r.json().catch(() => null), cookie: r.headers.get('set-cookie')?.split(';')[0] };
   };
-  const office = async (name = 'James W') => {
-    const a = await call('/api/login', { method: 'POST', body: { pin: 'OFFICE99' } });
-    assert.equal(a.body.needName, true);
-    return (await call('/api/login/name', { method: 'POST', body: { name }, cookie: a.cookie })).cookie;
-  };
-  const viewer = async () => (await call('/api/login', { method: 'POST', body: { pin: '2468' } })).cookie;
+  // Signing in the way the Lyons & Hohl App's Equipment Tracker button does.
+  const as = async (who) => (await call(`/api/sso?t=${encodeURIComponent(makePass(env.LH_HANDOFF_SECRET, who, t))}`)).cookie;
+  const office = (name = 'James W') => as({ id: 'recOFFICE0000001', name, role: 'o' });
+  const viewer = () => as({ id: 'recVIEWER0000001', name: 'Dalton M.', role: 'v' });
+  const driver = (name = 'Jared E.', id = 'recDRIVER0000001') => as({ id, name, role: 'd', driver: name });
   const data = async (cookie) => (await call('/api/data', { cookie })).body;
   const rec = (table, id) => deps.airtable.data[table].find((r) => r.id === id);
   const byId = (id) => deps.airtable.data[EQUIPMENT.table].find((r) => r.fields[E.id] === id);
-  return { deps, call, office, viewer, data, rec, byId, advance: (ms) => { t += ms; } };
+  return { deps, call, office, viewer, driver, data, rec, byId, advance: (ms) => { t += ms; } };
 }
 
-test('office sign-in asks for a name; viewers and half-signed-in sessions cannot save', async () => {
+test('Full Edit gets the office tools under their own name; View Only cannot save', async () => {
   const { call, office, viewer, data, byId } = await setup();
-  const half = (await call('/api/login', { method: 'POST', body: { pin: 'OFFICE99' } })).cookie;
-  assert.equal((await call('/api/data', { cookie: half })).status, 401);
   const v = await viewer();
   assert.equal((await data(v)).office, null);
+  assert.deepEqual((await data(v)).me, { name: 'Dalton M.', role: 'v', driver: 'Dalton M.' });
   const body = { rec: byId('336-05').id, expectLoc: 'Valley Suburban', to: 'TOA 3', from: 'Valley Suburban', date: '2026-10-14', status: 'Complete' };
   assert.equal((await call('/api/moves', { method: 'POST', body, cookie: v })).status, 403);
   const o = await office();
@@ -43,12 +42,50 @@ test('office sign-in asks for a name; viewers and half-signed-in sessions cannot
   assert.ok(!(await data(o)).choices.loc.includes('hb'), 'partial leftovers like "hb" are left out');
 });
 
-test('changing OFFICE_PIN signs the office out but not viewers', async () => {
-  const { call, office, viewer, deps } = await setup();
-  const o = await office(), v = await viewer();
-  deps.env = { ...env, OFFICE_PIN: 'NEWPIN11' };
-  assert.equal((await call('/api/data', { cookie: o })).status, 401);
-  assert.equal((await call('/api/data', { cookie: v })).status, 200);
+test('Driver User marks only their own moves done; nothing else; undo only their own', async () => {
+  const { call, office, viewer, driver, data, rec, byId, deps } = await setup();
+  const o = await office();
+  const add = async (id, drv) => (await call('/api/moves', { method: 'POST', cookie: o, body: { rec: byId(id).id, expectLoc: byId(id).fields[E.location], from: byId(id).fields[E.location], to: 'Odessa', date: '2026-10-15', driver: drv, status: 'Scheduled' } })).body.id;
+  const mine = await add('D6T-03', 'Jared E'), theirs = await add('D6T-02', 'Dan I'), nobody = await add('D8R-03', '');
+  const d = await driver();
+  assert.equal((await data(d)).office, null);
+  assert.equal((await data(d)).me.role, 'd');
+  const done = (move, rec2, cookie = d) => call('/api/moves/done', { method: 'POST', cookie, body: { move, rec: rec2, to: 'Odessa', date: '2026-10-15' } });
+  // someone else's move, or one with no driver: refused, nothing written
+  const no = await done(theirs, byId('D6T-02').id);
+  assert.equal(no.status, 403);
+  assert.match(no.body.error, /own moves.*Dan I/);
+  assert.equal((await done(nobody, byId('D8R-03').id)).status, 403);
+  assert.equal(rec(MOVES.table, theirs).fields[M.status], 'Scheduled');
+  // their own: saved under their name, sets Location
+  const ok = await done(mine, byId('D6T-03').id);
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(rec(MOVES.table, mine).fields[M.status], 'Complete');
+  assert.equal(byId('D6T-03').fields[E.location], 'Odessa');
+  assert.ok(deps.airtable.data[CHANGE_LOG.table].some((x) => x.fields[L.who] === 'Jared E.' && x.fields[L.change] === 'Move marked done'));
+  // drivers can't add, edit, delete, arrange or change machines
+  const body = { rec: byId('336-05').id, expectLoc: 'Valley Suburban', to: 'TOA 3', from: 'Valley Suburban', date: '2026-10-14', status: 'Complete' };
+  for (const [method, path, b] of [['POST', '/api/moves', body], ['PATCH', '/api/moves', { move: theirs, status: 'Complete' }], ['POST', '/api/moves/delete', { move: theirs }],
+    ['POST', '/api/moves/order', { ids: [theirs] }], ['PATCH', '/api/machines', { rec: byId('336-05').id, set: { st: 'Down' } }]]) {
+    const r = await call(path, { method, body: b, cookie: d });
+    assert.equal(r.status, 403, `${method} ${path}`);
+    assert.match(r.body.error, /only mark their own moves done/);
+  }
+  // View Only can't mark anything done
+  const v = await viewer();
+  const vr = await done(theirs, byId('D6T-02').id, v);
+  assert.equal(vr.status, 403);
+  assert.match(vr.body.error, /view-only/);
+  // undo: another driver can't undo it; the same driver can
+  const other = await driver('Dan I.', 'recDRIVER0000002');
+  assert.equal((await call('/api/undo', { method: 'POST', cookie: other, body: { token: ok.body.undo } })).status, 403);
+  assert.equal((await call('/api/undo', { method: 'POST', cookie: d, body: { token: ok.body.undo } })).status, 200);
+  assert.equal(rec(MOVES.table, mine).fields[M.status], 'Scheduled');
+  // and a driver can't undo an office change
+  const oc = await call('/api/moves/order', { method: 'POST', cookie: o, body: { ids: (await data(o)).mv.filter((m) => m[8] === 'Scheduled' || m[8] === 'Need').map((m) => m[11]).reverse() } });
+  assert.equal((await call('/api/undo', { method: 'POST', cookie: d, body: { token: oc.body.undo } })).status, 403);
+  // "Dan I." (employee record) matches "Dan I" (move) the other way round too
+  assert.equal((await done(theirs, byId('D6T-02').id, other)).status, 200);
 });
 
 test('a completed move is saved, sets Location, is logged, and shows for everyone', async () => {
